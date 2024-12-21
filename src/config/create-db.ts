@@ -35,7 +35,6 @@ async function createDb() {
     // Create test database
     await pool.query(`CREATE DATABASE ${POSTGRES_TEST_DB}`);
     console.log(`Database ${POSTGRES_TEST_DB} created`);
-    
   } catch (err) {
     console.error('Error creating databases', err);
   } finally {

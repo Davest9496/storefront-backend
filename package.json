@@ -9,8 +9,8 @@
     "test": "jasmine-ts",
     "tsc": "tsc",
     "lint": "eslint . --ext .ts",
-    "prettier": "prettier --write .",
-    "db:create": "ts-node src/utils/create-db.ts"
+    "format": "prettier --write .",
+    "db:create": "ts-node src/config/create-db.ts"
   },
   "author": "Udacity",
   "license": "ISC",
