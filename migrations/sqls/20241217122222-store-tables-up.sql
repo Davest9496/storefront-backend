@@ -20,8 +20,8 @@ CREATE TABLE products (
     category product_category NOT NULL,
     product_desc VARCHAR(250),
     image_name VARCHAR(255) NOT NULL,
-    product_features TEXT[],
-    product_accessories TEXT[]
+    product_features TEXT[] NOT NULL,
+    product_accessories TEXT[] NOT NULL
 );
 
 -- Orders Table
@@ -50,9 +50,3 @@ CREATE TABLE order_products (
         REFERENCES products(id) 
         ON DELETE CASCADE
 );
-
--- Create Indexes for faster queries
-CREATE INDEX idx_orders_user_id ON orders(user_id);
-CREATE INDEX idx_products_category ON products(category);
-CREATE INDEX idx_order_products_order_id ON order_products(order_id);
-CREATE INDEX idx_order_products_product_id ON order_products(product_id);
