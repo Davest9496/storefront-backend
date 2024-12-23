@@ -1,15 +1,34 @@
-import express, { Request, Response } from 'express';
+import express, { Application } from 'express';
 import bodyParser from 'body-parser';
+import dotenv from 'dotenv';
+import { createPool } from './config/db.config';
+import {routes} from '../src/routes/routes'
 
-const app: express.Application = express();
-const address: string = '0.0.0.0:3000';
+dotenv.config();
+
+// Database Connection
+export const dbPool = createPool();
+
+const app: Application = express();
+const port = process.env.PORT || 3000;
 
 app.use(bodyParser.json());
+app.use(express.json());
 
-app.get('/', function (req: Request, res: Response) {
-  res.send('Hello World...!');
+app.use('/api', routes);
+
+// Basic error handling middleware
+// app.use((err: Error, req: Request, res: Response, next: Function) => {
+//   console.error(err.stack);
+//   res.status(500).json({
+//     error: 'Internal Server Error',
+//     status: 500,
+//     details: process.env.NODE_ENV === 'dev' ? err.message : undefined
+//   });
+// });
+
+app.listen(port, function () {
+  console.log(`starting app on: ${port}`);
 });
 
-app.listen(3000, function () {
-  console.log(`starting app on: ${address}`);
-});
+export default app;
