@@ -9,6 +9,7 @@ CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
+    email VARCHAR(250) UNIQUE NOT NULL,
     password_digest VARCHAR(250) NOT NULL
 );
 
@@ -50,3 +51,10 @@ CREATE TABLE order_products (
         REFERENCES products(id) 
         ON DELETE CASCADE
 );
+
+-- Create Indexes for faster queries
+CREATE INDEX idx_orders_user_id ON orders(user_id);
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_products_category ON products(category);
+CREATE INDEX idx_order_products_order_id ON order_products(order_id);
+CREATE INDEX idx_order_products_product_id ON order_products(product_id);

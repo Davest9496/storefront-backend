@@ -2,7 +2,7 @@ import express, { Application } from 'express';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import { createPool } from './config/db.config';
-import {routes} from '../src/routes/routes'
+import { routes } from '../src/routes/routes';
 
 dotenv.config();
 

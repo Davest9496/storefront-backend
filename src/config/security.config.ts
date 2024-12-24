@@ -17,9 +17,9 @@ export const SecurityConfig = {
     saltRounds: parseInt(process.env.SALT_ROUNDS || '10'),
 
     //-- For stronger password enforcement --//
-    // minLength: 8,
-    // requireSpecialChar: true,
-    // requireNumber: true,
-    // requireUpperCase: true
+    minLength: 8,
+    requireSpecialChar: true,
+    requireNumber: true,
+    requireUpperCase: true,
   },
 };
