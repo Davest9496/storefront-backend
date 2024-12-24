@@ -1,10 +1,7 @@
 import { Response, Request } from 'express';
-import jwt from 'jsonwebtoken';
-import { SecurityConfig } from '../config/security.config';
-import { CreateUserDTO } from '../types/user.types';
-import bcrypt from 'bcrypt';
 import { dbPool } from '../server';
 
+// Get all users
 export const getUsers = async (_req: Request, res: Response): Promise<void> => {
   try {
     const client = await dbPool.connect();
@@ -22,6 +19,8 @@ export const getUsers = async (_req: Request, res: Response): Promise<void> => {
   }
 };
 
+
+// Get user by Id
 export const getUserById = async (
   req: Request,
   res: Response
@@ -48,80 +47,80 @@ export const getUserById = async (
   }
 };
 
-export const signup = async (req: Request, res: Response): Promise<void> => {
-  const { first_name, last_name, email, password }: CreateUserDTO = req.body;
-
-  // Validate inputs
-  if (!first_name || !last_name || !email || !password) {
-    res.status(400).json({ error: 'Missing required fields' });
-    return;
-  }
-
-  // Validate email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    res.status(400).json({ error: 'Invalid email format' });
-    return;
-  }
-
-  // Validate password strength
-  if (password.length < SecurityConfig.password.minLength) {
-    res.status(400).json({
-      error: `Password must be at least ${SecurityConfig.password.minLength} characters long`,
-    });
-    return;
-  }
-
-  // Password Hashing
-  const pepper = SecurityConfig.password.pepper;
-  const saltRounds = SecurityConfig.password.saltRounds;
-  const hashedPassword = await bcrypt.hash(password + pepper, saltRounds);
-
-  const client = await dbPool.connect();
+// Update user
+export const updateUser = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
-    // Check if email already exists
-    const existingUser = await client.query(
-      'SELECT id FROM users WHERE email = $1',
-      [email]
-    );
+    const userId = parseInt(req.params.id);
+    const { first_name, last_name, email } = req.body;
 
-    if (existingUser.rows.length > 0) {
-      res.status(400).json({ error: 'Email already registered' });
+    // Ensure user can only update their own profile
+    if (req.user?.id !== userId) {
+      res.status(403).json({ error: 'Unauthorized to update this user' });
       return;
     }
 
-    // Create user
-    const result = await client.query(
-      'INSERT INTO users (first_name, last_name, email, password_digest) VALUES ($1, $2, $3, $4) RETURNING id, first_name, last_name',
-      [first_name, last_name, email, hashedPassword]
-    );
-    const user = result.rows[0];
+    const client = await dbPool.connect();
+    try {
+      const result = await client.query(
+        `UPDATE users 
+                 SET first_name = COALESCE($1, first_name),
+                     last_name = COALESCE($2, last_name),
+                     email = COALESCE($3, email)
+                 WHERE id = $4
+                 RETURNING id, first_name, last_name, email`,
+        [first_name, last_name, email, userId]
+      );
 
-    // Generate JWT token
-    const token = jwt.sign(
-      {
-        id: user.id,
-        firstName: user.first_name,
-        lastName: user.last_name,
-      },
-      SecurityConfig.jwt.secret!,
-      {
-        expiresIn: SecurityConfig.jwt.expiresIn,
+      if (result.rows.length === 0) {
+        res.status(404).json({ error: 'User not found' });
+        return;
       }
-    );
 
-    res.status(201).json({
-      user: {
-        id: user.id,
-        firstName: user.first_name,
-        lastName: user.last_name,
-      },
-      token,
-    });
+      res.json(result.rows[0]);
+    } finally {
+      client.release();
+    }
   } catch (error) {
-    console.error('Error during signup:', error);
+    console.error('Error updating user:', error);
     res.status(500).json({ error: 'Internal server error' });
-  } finally {
-    client.release();
+  }
+};
+
+// Delete user
+export const deleteUser = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const userId = parseInt(req.params.id);
+
+    // Ensure user can only delete their own account
+    if (req.user?.id !== userId) {
+      res.status(403).json({ error: 'Unauthorized to delete this user' });
+      return;
+    }
+
+    const client = await dbPool.connect();
+    try {
+      const result = await client.query(
+        'DELETE FROM users WHERE id = $1 RETURNING id',
+        [userId]
+      );
+
+      if (result.rows.length === 0) {
+        res.status(404).json({ error: 'User not found' });
+        return;
+      }
+
+      res.json({ message: 'User successfully deleted' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 };

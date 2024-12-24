@@ -2,7 +2,7 @@ import express, { Application } from 'express';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import { createPool } from './config/db.config';
-import { routes } from '../src/routes/routes';
+import { router } from './routes/router';
 
 dotenv.config();
 
@@ -15,7 +15,7 @@ const port = process.env.PORT || 3000;
 app.use(bodyParser.json());
 app.use(express.json());
 
-app.use('/api', routes);
+app.use('/api', router);
 
 // Basic error handling middleware
 // app.use((err: Error, req: Request, res: Response, next: Function) => {
