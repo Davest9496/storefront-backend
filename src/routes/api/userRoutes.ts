@@ -14,4 +14,4 @@ userRoutes.get('/:id', verifyAuthToken, getUserById);
 userRoutes.put('/:id', verifyAuthToken, updateUser);
 userRoutes.delete('/:id', verifyAuthToken, deleteUser);
 
-export {userRoutes};
+export { userRoutes };

@@ -1,23 +1,23 @@
 import { Product } from './product.types';
 // Order Types
-export interface Order {
+export interface OrderStatus {
   id: number;
-  user_id: number;
+  userId: number;
   status: 'active' | 'complete';
   products: OrderProduct[];
 }
 
 export interface OrderProduct {
   id: number;
-  product_id: number;
+  productId: number;
   quantity: number;
   product?: Product;
 }
 
 export interface CreateOrderDTO {
-  user_id: number;
+  userId: number;
   products: {
-    product_id: number;
+    productId: number;
     quantity: number;
   }[];
 }

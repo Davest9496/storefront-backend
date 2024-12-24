@@ -19,7 +19,6 @@ export const getUsers = async (_req: Request, res: Response): Promise<void> => {
   }
 };
 
-
 // Get user by Id
 export const getUserById = async (
   req: Request,
