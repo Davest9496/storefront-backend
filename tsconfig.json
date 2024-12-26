@@ -6,15 +6,15 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
-    "typeRoots": ["./node_modules/@types", "./src/@types"],
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "types": ["node", "jasmine"],
+    "types": ["node", "express", "jsonwebtoken"],
+    "typeRoots": ["./src/types", "./node_modules/@types"],
     "sourceMap": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "src/types/*.d.ts"],
   "exclude": ["node_modules", "dist"]
 }

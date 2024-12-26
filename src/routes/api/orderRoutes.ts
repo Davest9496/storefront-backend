@@ -11,9 +11,9 @@ import {
 
 const orderRouter = Router();
 
+orderRouter.post('/', verifyAuthToken, createOrder);
 orderRouter.get('/current/:userId', verifyAuthToken, getCurrentOrder);
 orderRouter.get('/completed/:userId', verifyAuthToken, getCompletedOrders);
-orderRouter.post('/', verifyAuthToken, createOrder);
 orderRouter.post('/:id/products', verifyAuthToken, addProduct);
 orderRouter.put('/:id/status', verifyAuthToken, updateOrderStatus);
 
