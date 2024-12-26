@@ -1,29 +1,21 @@
 // src/routes/productRoutes.ts
 import { Router } from 'express';
-import { verifyAuthToken } from '../middleware/auth';
+import { verifyAuthToken } from '../../middleware/auth.middleware';
 import {
-  getAllProducts,
+  getProducts,
   getProductById,
   createProduct,
   getTopProducts,
   getProductsByCategory,
-} from '../controllers/productController';
+} from '../../handlers/product.handler';
 
-const router = Router();
+const productRouter = Router();
 
-// GET /api/products
-router.get('/', getAllProducts);
+productRouter.get('/', getProducts);
+productRouter.get('/:id', getProductById);
+//-- Reserved for Admin, not implemented yet --//
+productRouter.post('/', verifyAuthToken, createProduct);
+productRouter.get('/popular', getTopProducts);
+productRouter.get('/category/:category', getProductsByCategory);
 
-// GET /api/products/:id
-router.get('/:id', getProductById);
-
-// POST /api/products (protected)
-router.post('/', verifyAuthToken, createProduct);
-
-// GET /api/products/popular
-router.get('/popular', getTopProducts);
-
-// GET /api/products/category/:category
-router.get('/category/:category', getProductsByCategory);
-
-export default router;
+export {productRouter};
