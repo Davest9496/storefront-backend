@@ -13,9 +13,9 @@ const productRouter = Router();
 
 productRouter.get('/', getProducts);
 productRouter.get('/:id', getProductById);
-//-- Reserved for Admin, not implemented yet --//
-productRouter.post('/', verifyAuthToken, createProduct);
 productRouter.get('/popular', getTopProducts);
 productRouter.get('/category/:category', getProductsByCategory);
+//-- Reserved for Admin, not implemented yet --//
+productRouter.post('/', verifyAuthToken, createProduct);
 
 export {productRouter};

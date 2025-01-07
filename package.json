@@ -11,7 +11,8 @@
     "test": "jasmine-ts",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write .",
-    "db:create": "ts-node src/config/create-db.ts"
+    "db:create": "ts-node src/config/create-db.ts",
+    "db:migrate": "db-migrate"
   },
   "dependencies": {
     "@types/bcrypt": "^5.0.2",
