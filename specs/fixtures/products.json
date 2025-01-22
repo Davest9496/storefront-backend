@@ -1,0 +1,13 @@
+[
+  {
+    "product_name": "XX99 Mark II Headphones",
+    "price": 45.0,
+    "category": "headphones",
+    "product_desc": "The new XX99 Mark II headphones is the pinnacle of pristine audio.",
+    "is_new": true,
+    "features": [
+      "Featuring a genuine leather head strap and premium earcups.",
+      "The advanced Active Noise Cancellation with built-in equalizer."
+    ]
+  }
+]
