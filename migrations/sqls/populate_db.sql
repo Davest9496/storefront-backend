@@ -1,14 +1,35 @@
+-- Start a transaction to ensure all-or-nothing population
+BEGIN;
+
 -- Clean up any existing data to avoid conflicts
+TRUNCATE TABLE users CASCADE;
 TRUNCATE TABLE order_products CASCADE;
 TRUNCATE TABLE orders CASCADE;
 TRUNCATE TABLE product_accessories CASCADE;
 TRUNCATE TABLE products CASCADE;
 
+-- Users
+INSERT INTO users (first_name, last_name, email, password_digest) VALUES
+(
+    'John',
+    'Doe',
+    'john.doe@example.com',
+    -- This represents 'password123'
+    '$2b$10$xPPQQUB4gRTJK9BLON5e7.f6jpZBu0WJQAqJ0VLrDsQHnHrB8KDtC'
+),
+(
+    'Jane',
+    'Smith',
+    'jane.smith@example.com',
+    -- This represents 'testpass456'
+    '$2b$10$xPPQQUB4gRTJK9BLON5e7.1234567890abcdefghijklmnopqrstuv'
+);
+
 -- Headphones Category
 INSERT INTO products (product_name, price, category, product_desc, features) VALUES
 (
     'XX99 Mark II Headphones',
-    459.99,
+    259.99,
     'headphones',
     'The new XX99 Mark II headphones is the pinnacle of pristine audio. It redefines your premium headphone experience by reproducing the balanced depth and precision of studio-quality sound.',
     ARRAY[
@@ -29,7 +50,7 @@ INSERT INTO product_accessories (product_id, item_name, quantity) VALUES
 INSERT INTO products (product_name, price, category, product_desc, features) VALUES
 (
     'XX99 Mark I Headphones',
-    505.00,
+    205.00,
     'headphones',
     'As the gold standard for headphones, the classic XX99 Mark I offers detailed and accurate audio reproduction for audiophiles, mixing engineers, and music aficionados alike in studios and on the go.',
     ARRAY[
@@ -50,7 +71,7 @@ INSERT INTO product_accessories (product_id, item_name, quantity) VALUES
 INSERT INTO products (product_name, price, category, product_desc, features) VALUES
 (
     'XX59 Headphones',
-    495.00,
+    195.00,
     'headphones',
     'Enjoy your audio almost anywhere and customize it to your specific tastes with the XX59 headphones. The stylish yet durable versatile wireless headset is a brilliant companion at home or on the move.',
     ARRAY[
@@ -71,7 +92,7 @@ INSERT INTO product_accessories (product_id, item_name, quantity) VALUES
 INSERT INTO products (product_name, price, category, product_desc, features) VALUES
 (
     'ZX9 Speaker',
-    2045.00,
+    345.00,
     'speakers',
     'Upgrade your sound system with the all new ZX9 active speaker. It''s a bookshelf speaker system that offers truly wireless connectivity -- creating new possibilities for more pleasing and practical audio setups.',
     ARRAY[
@@ -92,7 +113,7 @@ INSERT INTO product_accessories (product_id, item_name, quantity) VALUES
 INSERT INTO products (product_name, price, category, product_desc, features) VALUES
 (
     'ZX7 Speaker',
-    2148.00,
+    248.00,
     'speakers',
     'Stream high quality sound wirelessly with minimal loss. The ZX7 bookshelf speaker uses high-end audiophile components that represents the top of the line powered speakers for home or studio use.',
     ARRAY[
@@ -113,7 +134,7 @@ INSERT INTO product_accessories (product_id, item_name, quantity) VALUES
 INSERT INTO products (product_name, price, category, product_desc, features) VALUES
 (
     'YX1 Wireless Earphones',
-    499.99,
+    99.99,
     'earphones',
     'Tailor your listening experience with bespoke dynamic drivers from the new YX1 Wireless Earphones. Enjoy incredible high-fidelity sound even in noisy environments with its active noise cancellation feature.',
     ARRAY[
@@ -132,5 +153,9 @@ INSERT INTO product_accessories (product_id, item_name, quantity) VALUES
 ((SELECT id FROM product_id), 'USB-C Charging Cable', 1);
 
 -- Verify the data was inserted correctly
+SELECT 'Users count: ' || COUNT(*) FROM users;
 SELECT 'Products count: ' || COUNT(*) FROM products;
 SELECT 'Accessories count: ' || COUNT(*) FROM product_accessories;
+
+-- If everything succeeded, commit the transaction
+COMMIT;

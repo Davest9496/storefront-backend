@@ -9,8 +9,8 @@ const productRouter = (0, express_1.Router)();
 exports.productRouter = productRouter;
 productRouter.get('/', product_handler_1.getProducts);
 productRouter.get('/:id', product_handler_1.getProductById);
-//-- Reserved for Admin, not implemented yet --//
-productRouter.post('/', auth_middleware_1.verifyAuthToken, product_handler_1.createProduct);
 productRouter.get('/popular', product_handler_1.getTopProducts);
 productRouter.get('/category/:category', product_handler_1.getProductsByCategory);
+//-- Reserved for Admin, not implemented yet --//
+productRouter.post('/', auth_middleware_1.verifyAuthToken, product_handler_1.createProduct);
 //# sourceMappingURL=productRoutes.js.map

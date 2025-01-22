@@ -7,10 +7,10 @@ import {
   Product,
   ProductWithOrders,
   CreateProductDTO,
-} from '../types/product.types'; 
+} from '../types/product.types';
 
-
-// Fetch accessories for products
+// This helper function efficiently retrieves accessories for multiple products in a single query
+// using Postgres' json_agg and json_build_object for structured data return
 const getAccessoriesForProducts = async (
   client: PoolClient,
   productIds: number[]
@@ -20,25 +20,27 @@ const getAccessoriesForProducts = async (
     accessories: ProductAccessory[];
   }>(
     `SELECT 
-            product_id,
-            json_agg(
-                json_build_object(
-                    'item_name', item_name,
-                    'quantity', quantity
-                )
-            ) as accessories
-        FROM product_accessories
-        WHERE product_id = ANY($1::int[])
-        GROUP BY product_id`,
+      product_id,
+      json_agg(
+        json_build_object(
+          'item_name', item_name,
+          'quantity', quantity
+        )
+      ) as accessories
+    FROM product_accessories
+    WHERE product_id = ANY($1::int[])
+    GROUP BY product_id`,
     [productIds]
   );
 
+  // Transform the results into a map for easier lookup
   return accessoryResult.rows.reduce((acc: AccessoryMap, row) => {
     acc[row.product_id] = row.accessories;
     return acc;
   }, {});
 };
 
+// Retrieve all products with their basic information
 export const getProducts = async (
   _req: Request,
   res: Response
@@ -47,12 +49,28 @@ export const getProducts = async (
     const client = await dbPool.connect();
     try {
       const productsResult = await client.query<Product>(
-        'SELECT id, product_name, price, category, product_desc, image_name, features FROM products'
+        `SELECT 
+          id, 
+          product_name, 
+          price, 
+          category, 
+          product_desc, 
+          features 
+        FROM products`
       );
 
       if (productsResult.rows.length > 0) {
+        // Get accessories for all products in a single query
+        const productIds = productsResult.rows.map((product) => product.id);
+        const accessoriesMap = await getAccessoriesForProducts(
+          client,
+          productIds
+        );
+
+        // Add accessories to each product
         productsResult.rows = productsResult.rows.map((product) => ({
           ...product,
+          accessories: accessoriesMap[product.id] || [],
         }));
       }
 
@@ -66,17 +84,30 @@ export const getProducts = async (
   }
 };
 
+// Retrieve a single product by ID with its accessories
 export const getProductById = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
     const productId = parseInt(req.params.id);
-    const client = await dbPool.connect();
+    if (isNaN(productId)) {
+      res.status(400).json({ error: 'Invalid product ID' });
+      return;
+    }
 
+    const client = await dbPool.connect();
     try {
       const productResult = await client.query<Product>(
-        'SELECT id, product_name, price, category, product_desc, image_name, features FROM products WHERE id = $1',
+        `SELECT 
+          id, 
+          product_name, 
+          price, 
+          category, 
+          product_desc, 
+          features 
+        FROM products 
+        WHERE id = $1`,
         [productId]
       );
 
@@ -85,6 +116,7 @@ export const getProductById = async (
         return;
       }
 
+      // Get accessories for this product
       const accessoriesMap = await getAccessoriesForProducts(client, [
         productId,
       ]);
@@ -104,6 +136,7 @@ export const getProductById = async (
   }
 };
 
+// Create a new product with its accessories
 export const createProduct = async (
   req: Request,
   res: Response
@@ -112,27 +145,28 @@ export const createProduct = async (
   try {
     await client.query('BEGIN');
 
-    const productData: CreateProductDTO = req.body;
     const {
       product_name,
       price,
       category,
       product_desc,
-      image_name,
       features,
       accessories,
-    } = productData;
+    } = req.body as CreateProductDTO;
 
-    if (!product_name || !price || !category || !image_name) {
+    // Validate required fields
+    if (!product_name || !price || !category) {
       res.status(400).json({ error: 'Missing required fields' });
       return;
     }
 
+    // Validate price
     if (price <= 0) {
       res.status(400).json({ error: 'Price must be greater than 0' });
       return;
     }
 
+    // Validate category
     const validCategories: Array<'headphones' | 'speakers' | 'earphones'> = [
       'headphones',
       'speakers',
@@ -143,21 +177,24 @@ export const createProduct = async (
       return;
     }
 
+    // Insert the product
     const productResult = await client.query<{ id: number }>(
       `INSERT INTO products 
-            (product_name, price, category, product_desc, image_name, features)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING id`,
-      [product_name, price, category, product_desc, image_name, features]
+        (product_name, price, category, product_desc, features)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id`,
+      [product_name, price, category, product_desc, features]
     );
 
     const productId = productResult.rows[0].id;
 
-    if (accessories && accessories.length > 0) {
-      for (const accessory of accessories) {
+    // Insert accessories if provided
+    if (accessories!.length > 0) {
+      for (const accessory of accessories!) {
         await client.query(
-          `INSERT INTO product_accessories (product_id, item_name, quantity)
-                    VALUES ($1, $2, $3)`,
+          `INSERT INTO product_accessories 
+            (product_id, item_name, quantity)
+            VALUES ($1, $2, $3)`,
           [productId, accessory.item_name, accessory.quantity]
         );
       }
@@ -165,7 +202,7 @@ export const createProduct = async (
 
     await client.query('COMMIT');
 
-    // Fetch the complete product with accessories
+    // Return the created product with its accessories
     await getProductById(
       { params: { id: productId.toString() } } as unknown as Request,
       res
@@ -179,6 +216,7 @@ export const createProduct = async (
   }
 };
 
+// Retrieve the top 5 most ordered products
 export const getTopProducts = async (
   _req: Request,
   res: Response
@@ -188,19 +226,18 @@ export const getTopProducts = async (
     try {
       const productsResult = await client.query<ProductWithOrders>(
         `SELECT 
-                    p.id,
-                    p.product_name,
-                    p.price,
-                    p.category,
-                    p.product_desc,
-                    p.image_name,
-                    p.features,
-                    COALESCE(SUM(op.quantity), 0) as total_ordered
-                FROM products p
-                LEFT JOIN order_products op ON p.id = op.product_id
-                GROUP BY p.id
-                ORDER BY total_ordered DESC
-                LIMIT 5`
+          p.id,
+          p.product_name,
+          p.price,
+          p.category,
+          p.product_desc,
+          p.features,
+          COALESCE(SUM(op.quantity), 0) as total_ordered
+        FROM products p
+        LEFT JOIN order_products op ON p.id = op.product_id
+        GROUP BY p.id
+        ORDER BY total_ordered DESC
+        LIMIT 5`
       );
 
       if (productsResult.rows.length > 0) {
@@ -226,6 +263,7 @@ export const getTopProducts = async (
   }
 };
 
+// Retrieve products by category
 export const getProductsByCategory = async (
   req: Request,
   res: Response
@@ -247,15 +285,14 @@ export const getProductsByCategory = async (
     try {
       const productsResult = await client.query<Product>(
         `SELECT 
-                    id, 
-                    product_name,
-                    price,
-                    category,
-                    product_desc,
-                    image_name,
-                    features
-                FROM products
-                WHERE category = $1`,
+          id, 
+          product_name,
+          price,
+          category,
+          product_desc,
+          features
+        FROM products
+        WHERE category = $1`,
         [category]
       );
 

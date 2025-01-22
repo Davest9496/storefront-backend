@@ -5,14 +5,17 @@
   "main": "dist/server.js",
   "scripts": {
     "start": "node dist/server.js",
-    "dev": "nodemon",
+    "dev": "nodemon dist/server.ts",
     "build": "tsc",
     "watch": "tsc --watch",
     "test": "jasmine-ts",
     "lint": "eslint . --ext .ts",
     "format": "prettier --write .",
-    "db:create": "ts-node src/config/create-db.ts",
-    "db:migrate": "db-migrate"
+    "check:env": "ts-node -e \"import { verifySecurityConfig } from './src/config/security.config'; console.log('Security config status:', verifySecurityConfig());\"",
+    "db:create": "ts-node src/config/create-db.utils.ts",
+    "db:test": "ts-node src/utils/db-test.utils.ts",
+    "db:migrate": "db-migrate",
+    "db:populate": "psql -d storefront_dev -f migrations/sqls/populate_db.sql"
   },
   "dependencies": {
     "@types/bcrypt": "^5.0.2",
