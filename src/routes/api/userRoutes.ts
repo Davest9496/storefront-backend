@@ -1,17 +1,24 @@
 import { Router } from 'express';
-import { verifyAuthToken } from '../../middleware/auth.middleware';
-import {
-  getUsers,
-  getUserById,
-  updateUser,
-  deleteUser,
-} from '../../handlers/user.handler';
+import { AuthMiddleware } from '../../middleware/auth.middleware';
+import { UserController } from '../../handlers/user.handler';
 
-const userRoutes = Router();
+const userRouter = Router();
 
-userRoutes.get('/', verifyAuthToken, getUsers);
-userRoutes.get('/:id', verifyAuthToken, getUserById);
-userRoutes.put('/:id', verifyAuthToken, updateUser);
-userRoutes.delete('/:id', verifyAuthToken, deleteUser);
+userRouter.get('/', AuthMiddleware.verifyAuthToken, UserController.getUsers);
+userRouter.get(
+  '/:id',
+  AuthMiddleware.verifyAuthToken,
+  UserController.getUserById
+);
+userRouter.put(
+  '/:id',
+  AuthMiddleware.verifyAuthToken,
+  UserController.updateUser
+);
+userRouter.delete(
+  '/:id',
+  AuthMiddleware.verifyAuthToken,
+  UserController.deleteUser
+);
 
-export { userRoutes };
+export { userRouter };

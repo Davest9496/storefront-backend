@@ -1,61 +1,47 @@
-import { Response, Request } from 'express';
+import { Request, Response } from 'express';
 import { dbPool } from '../server';
+import { UserService } from '../services/user.service';
 
-// Get all users
-export const getUsers = async (_req: Request, res: Response): Promise<void> => {
-  try {
+export class UserController {
+  static async getUsers(req: Request, res: Response): Promise<void> {
     const client = await dbPool.connect();
     try {
-      const result = await client.query(
-        'SELECT id, first_name, last_name FROM users'
-      );
-      res.json(result.rows);
+      const userService = new UserService(client);
+      const users = await userService.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      res.status(500).json({ error: 'Internal server error' });
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.log('Error fetching users:', error);
-    res.status(501).json({ error: 'Internal server error' });
   }
-};
 
-// Get user by Id
-export const getUserById = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
+  static async getUserById(req: Request, res: Response): Promise<void> {
     const userId = parseInt(req.params.id);
     const client = await dbPool.connect();
 
     try {
-      const result = await client.query(
-        'SELECT id, first_name, last_name FROM users WHERE id=$1',
-        [userId]
-      );
-      if (result.rows.length === 0) {
+      const userService = new UserService(client);
+      const user = await userService.getProfile(userId);
+
+      if (!user) {
         res.status(404).json({ error: 'User not found' });
+        return;
       }
-      res.json(result.rows);
+
+      res.json(user);
+    } catch (error) {
+      console.error('Error fetching user:', error);
+      res.status(500).json({ error: 'Internal server error' });
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.log('Error fetching user data:', error);
-    res.status(500).json({ details: 'Internal server Error' });
   }
-};
 
-// Update user
-export const updateUser = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
+  static async updateUser(req: Request, res: Response): Promise<void> {
     const userId = parseInt(req.params.id);
-    const { first_name, last_name, email } = req.body;
 
-    // Ensure user can only update their own profile
     if (req.user?.id !== userId) {
       res.status(403).json({ error: 'Unauthorized to update this user' });
       return;
@@ -63,40 +49,30 @@ export const updateUser = async (
 
     const client = await dbPool.connect();
     try {
-      const result = await client.query(
-        `UPDATE users 
-                 SET first_name = COALESCE($1, first_name),
-                     last_name = COALESCE($2, last_name),
-                     email = COALESCE($3, email)
-                 WHERE id = $4
-                 RETURNING id, first_name, last_name, email`,
-        [first_name, last_name, email, userId]
-      );
+      const userService = new UserService(client);
+      const updatedUser = await userService.updateProfile(userId, req.body);
 
-      if (result.rows.length === 0) {
+      if (!updatedUser) {
         res.status(404).json({ error: 'User not found' });
         return;
       }
 
-      res.json(result.rows[0]);
+      res.json(updatedUser);
+    } catch (error) {
+      console.error('Error updating user:', error);
+      if (error instanceof Error) {
+        res.status(400).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: 'Internal server error' });
+      }
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Error updating user:', error);
-    res.status(500).json({ error: 'Internal server error' });
   }
-};
 
-// Delete user
-export const deleteUser = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
+  static async deleteUser(req: Request, res: Response): Promise<void> {
     const userId = parseInt(req.params.id);
 
-    // Ensure user can only delete their own account
     if (req.user?.id !== userId) {
       res.status(403).json({ error: 'Unauthorized to delete this user' });
       return;
@@ -104,22 +80,18 @@ export const deleteUser = async (
 
     const client = await dbPool.connect();
     try {
-      const result = await client.query(
-        'DELETE FROM users WHERE id = $1 RETURNING id',
-        [userId]
-      );
-
-      if (result.rows.length === 0) {
-        res.status(404).json({ error: 'User not found' });
-        return;
-      }
-
+      const userService = new UserService(client);
+      await userService.deleteAccount(userId);
       res.json({ message: 'User successfully deleted' });
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      if (error instanceof Error) {
+        res.status(400).json({ error: error.message });
+      } else {
+        res.status(500).json({ error: 'Internal server error' });
+      }
     } finally {
       client.release();
     }
-  } catch (error) {
-    console.error('Error deleting user:', error);
-    res.status(500).json({ error: 'Internal server error' });
   }
-};
+}

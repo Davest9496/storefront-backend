@@ -5,7 +5,6 @@ export interface Product {
   price: number;
   category: 'headphones' | 'speakers' | 'earphones';
   product_desc: string | null;
-  image_name: string;
   features: string[];
   accessories?: ProductAccessory[];
 }
@@ -15,7 +14,6 @@ export interface CreateProductDTO {
   price: number;
   category: 'headphones' | 'speakers' | 'earphones';
   product_desc?: string;
-  image_name: string;
   features: string[];
   accessories?: ProductAccessory[];
 }

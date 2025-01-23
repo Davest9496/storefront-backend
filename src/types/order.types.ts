@@ -14,6 +14,12 @@ export interface OrderProduct {
   product?: Product;
 }
 
+export interface OrderHistory {
+  id: number;
+  userId: number;
+  orders: OrderStatus[];
+}
+
 export interface CreateOrderDTO {
   userId: number;
   products: {
