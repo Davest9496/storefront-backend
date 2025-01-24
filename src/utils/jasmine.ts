@@ -1,18 +1,12 @@
-import Jasmine from 'jasmine';
-import { SpecReporter, StacktraceOption } from 'jasmine-spec-reporter';
+import 'jasmine';
+import DatabaseTestUtils from './db-test.utils';
 
-const jasmine = new Jasmine();
+beforeAll(async () => {
+  await DatabaseTestUtils.init();
+  await DatabaseTestUtils.setupTestDb();
+});
 
-jasmine.loadConfigFile('spec/support/jasmine.json');
-
-jasmine.clearReporters();
-jasmine.addReporter(
-  new SpecReporter({
-    spec: {
-      displayPending: true,
-      displayStacktrace: 'pretty' as StacktraceOption,
-    },
-  })
-);
-
-jasmine.execute();
+afterAll(async () => {
+  await DatabaseTestUtils.teardownTestDb();
+  await DatabaseTestUtils.cleanup();
+});

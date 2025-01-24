@@ -1,109 +1,113 @@
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
-import path from 'path';
-import fs from 'fs';
+// import path from 'path';
 
-// Function to check if .env file exists and log its location
-function checkEnvFile() {
-  const envPath = path.join(process.cwd(), '.env');
-  console.log('Looking for .env file at:', envPath);
+class DatabaseTestUtils {
+  private static pool: Pool;
 
-  if (fs.existsSync(envPath)) {
-    console.log('.env file found');
-    // Log first line of .env file to verify it's the right file
-    const firstLine = fs.readFileSync(envPath, 'utf8').split('\n')[0];
-    console.log('First line of .env:', firstLine);
-  } else {
-    console.log('.env file not found');
-  }
-}
+  static async init() {
+    dotenv.config({ path: '.env.test' });
 
-async function testDatabase() {
-  console.log('Current working directory:', process.cwd());
+    const dbConfig = {
+      host: process.env.POSTGRES_HOST,
+      database: process.env.POSTGRES_DB,
+      user: process.env.POSTGRES_USER,
+      password: process.env.POSTGRES_PASSWORD,
+      port: 5432,
+      max: 20,
+      idleTimeoutMillis: 30000,
+    };
 
-  // Check .env file before loading
-  checkEnvFile();
-
-  // Load environment variables and log the result
-  const envResult = dotenv.config();
-  if (envResult.error) {
-    console.error('Error loading .env file:', envResult.error);
-  } else {
-    console.log('.env file loaded successfully');
+    this.pool = new Pool(dbConfig);
+    await this.testConnection();
   }
 
-  // Log all relevant environment variables
-  console.log('\nEnvironment Variables:');
-  const relevantVars = ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER'];
-  relevantVars.forEach((varName) => {
-    console.log(`${varName}:`, process.env[varName] || 'not set');
-  });
-
-  // Create database connection configuration
-  const dbConfig = {
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    database: process.env.DB_NAME,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-  };
-
-  console.log('\nAttempting database connection with config:', {
-    ...dbConfig,
-    password: '[REDACTED]',
-  });
-
-  const pool = new Pool(dbConfig);
-
-  try {
-    console.log('\nTesting database connection...');
-    const client = await pool.connect();
-
-    console.log('Successfully connected to database');
-
-    // Test basic query
-    const result1 = await client.query('SELECT NOW()');
-    console.log('Basic query successful:', result1.rows[0].now);
-
-    // Check available tables
-    console.log('\nChecking database tables...');
-    const result2 = await client.query(`
-            SELECT table_name 
-            FROM information_schema.tables 
-            WHERE table_schema = 'public'
-            AND table_type = 'BASE TABLE'
-        `);
-
-    console.log(
-      'Available tables:',
-      result2.rows.map((row) => row.table_name)
-    );
-
-    // If products table exists, check its contents
-    if (result2.rows.some((row) => row.table_name === 'products')) {
-      console.log('\nChecking products table...');
-      const result3 = await client.query('SELECT COUNT(*) FROM products');
-      console.log('Number of products:', result3.rows[0].count);
-
-      // Show sample product
-      const sampleProduct = await client.query(
-        'SELECT * FROM products LIMIT 1'
-      );
-      if (sampleProduct.rows.length > 0) {
-        console.log('Sample product:', sampleProduct.rows[0]);
-      }
+  static async testConnection() {
+    const client = await this.pool.connect();
+    try {
+      await client.query('SELECT NOW()');
+    } finally {
+      client.release();
     }
+  }
 
-    client.release();
-  } catch (err) {
-    console.error('\nDatabase test failed:', err);
-  } finally {
-    await pool.end();
+  static async setupTestDb() {
+    const client = await this.pool.connect();
+    try {
+      await client.query(`
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'order_status') THEN
+                        CREATE TYPE order_status AS ENUM ('active', 'complete');
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'product_category') THEN
+                        CREATE TYPE product_category AS ENUM ('headphones', 'speakers', 'earphones');
+                    END IF;
+                END $$;
+
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    first_name VARCHAR(100) NOT NULL,
+                    last_name VARCHAR(100) NOT NULL,
+                    email VARCHAR(255) UNIQUE NOT NULL,
+                    password_digest VARCHAR(250) NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS products (
+                    id SERIAL PRIMARY KEY,
+                    product_name VARCHAR(100) NOT NULL,
+                    price DECIMAL(10,2) NOT NULL CHECK (price > 0),
+                    category product_category NOT NULL,
+                    product_desc VARCHAR(250),
+                    image_name VARCHAR(255) NOT NULL,
+                    features TEXT[],
+                    accessories TEXT[]
+                );
+
+                CREATE TABLE IF NOT EXISTS orders (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                    status order_status NOT NULL DEFAULT 'active'
+                );
+
+                CREATE TABLE IF NOT EXISTS order_products (
+                    id SERIAL PRIMARY KEY,
+                    order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+                    product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+                    quantity INTEGER NOT NULL CHECK (quantity > 0)
+                );
+            `);
+    } finally {
+      client.release();
+    }
+  }
+
+  static async teardownTestDb() {
+    const client = await this.pool.connect();
+    try {
+      await client.query(`
+                DROP TABLE IF EXISTS order_products CASCADE;
+                DROP TABLE IF EXISTS orders CASCADE;
+                DROP TABLE IF EXISTS products CASCADE;
+                DROP TABLE IF EXISTS users CASCADE;
+                DROP TYPE IF EXISTS order_status CASCADE;
+                DROP TYPE IF EXISTS product_category CASCADE;
+            `);
+    } finally {
+      client.release();
+    }
+  }
+
+  static async cleanup() {
+    await this.pool.end();
+  }
+
+  static getPool(): Pool {
+    if (!this.pool) {
+      throw new Error('Database not initialized. Call init() first.');
+    }
+    return this.pool;
   }
 }
 
-// Run the test
-console.log('Starting database test...');
-testDatabase()
-  .then(() => console.log('Database test completed'))
-  .catch((error) => console.error('Test failed:', error));
+export default DatabaseTestUtils;
