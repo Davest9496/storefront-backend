@@ -1,5 +1,5 @@
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+import * as bcrypt from 'bcrypt';
+import * as jwt from 'jsonwebtoken';
 import { SecurityConfig } from '../config/security.config';
 import { UserResponse } from '../types/user.types';
 

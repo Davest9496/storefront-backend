@@ -1,11 +1,11 @@
-import Jasmine from 'jasmine';
+import Jasmine = require('jasmine');
 import { SpecReporter, StacktraceOption } from 'jasmine-spec-reporter';
 
-const runner = new Jasmine({});
-runner.loadConfigFile('tests/jasmine.json');
+const jasmine = new Jasmine();
+jasmine.loadConfigFile('tests/jasmine.json');
 
-runner.clearReporters();
-runner.addReporter(
+jasmine.clearReporters();
+jasmine.addReporter(
   new SpecReporter({
     spec: {
       displayStacktrace: StacktraceOption.NONE,
@@ -13,4 +13,4 @@ runner.addReporter(
   })
 );
 
-runner.execute();
+jasmine.execute();

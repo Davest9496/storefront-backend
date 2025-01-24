@@ -1,9 +1,8 @@
-import dotenv from 'dotenv';
+import * as dotenv from 'dotenv';
 
-// Load environment variables at startup
 dotenv.config();
 
-// We'll create an interface to define our security configuration structure
+// Interface to define security configuration structure
 interface SecurityConfiguration {
   jwt: {
     secret: string;

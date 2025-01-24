@@ -91,31 +91,4 @@ export class UserModel {
     );
     return result.rows.length > 0;
   }
-
-  // async findOrdersByUser(userId: number): Promise<
-  //   {
-  //     id: number;
-  //     status: string;
-  //     products: { id: number; product_id: number; quantity: number }[];
-  //   }[]
-  // > {
-  //   const result = await this.client.query(
-  //     `SELECT 
-  //       o.id, o.status,
-  //       COALESCE(json_agg(
-  //         json_build_object(
-  //           'id', op.id,
-  //           'product_id', op.product_id,
-  //           'quantity', op.quantity
-  //         )
-  //       ) FILTER (WHERE op.id IS NOT NULL), '[]') as products
-  //      FROM orders o
-  //      LEFT JOIN order_products op ON o.id = op.order_id
-  //      WHERE o.user_id = $1
-  //      GROUP BY o.id
-  //      ORDER BY o.id DESC`,
-  //     [userId]
-  //   );
-  //   return result.rows;
-  // }
 }
