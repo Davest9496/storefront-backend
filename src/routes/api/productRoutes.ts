@@ -1,20 +1,17 @@
 import { Router } from 'express';
-// import { verifyAuthToken } from '../../middleware/auth.middleware';
-import {
-  getProducts,
-  getProductById,
-  //   createProduct,
-  getTopProducts,
-  getProductsByCategory,
-} from '../../controllers/product.controller';
+import { AuthMiddleware } from '../../middleware/auth.middleware';
+import { ProductController } from '../../controllers/product.controller';
 
-const productRouter = Router();
+const router = Router();
 
-productRouter.get('/', getProducts);
-productRouter.get('/:id', getProductById);
-productRouter.get('/popular', getTopProducts);
-productRouter.get('/category/:category', getProductsByCategory);
-//-- Reserved for Admin, not implemented yet --//
-// productRouter.post('/', verifyAuthToken, createProduct);
+router.get('/', ProductController.getProducts);
+router.get('/:id', ProductController.getProductById);
+router.get('/popular', ProductController.getTopProducts);
+router.get('/category/:category', ProductController.getProductsByCategory);
+router.post(
+  '/',
+  AuthMiddleware.verifyAuthToken,
+  ProductController.createProduct
+);
 
-export { productRouter };
+export default router;

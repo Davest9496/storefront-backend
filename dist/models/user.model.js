@@ -56,23 +56,6 @@ class UserModel {
         const result = await this.client.query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [email]);
         return result.rows.length > 0;
     }
-    async findOrdersByUser(userId) {
-        const result = await this.client.query(`SELECT 
-        o.id, o.status,
-        COALESCE(json_agg(
-          json_build_object(
-            'id', op.id,
-            'product_id', op.product_id,
-            'quantity', op.quantity
-          )
-        ) FILTER (WHERE op.id IS NOT NULL), '[]') as products
-       FROM orders o
-       LEFT JOIN order_products op ON o.id = op.order_id
-       WHERE o.user_id = $1
-       GROUP BY o.id
-       ORDER BY o.id DESC`, [userId]);
-        return result.rows;
-    }
 }
 exports.UserModel = UserModel;
 //# sourceMappingURL=user.model.js.map

@@ -1,4 +1,4 @@
-import express, { Application, Request, Response } from 'express';
+import express, { Application, Request, Response, NextFunction } from 'express';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import { createPool, testConnection } from './config/db.config';
@@ -46,10 +46,10 @@ app.get('/health', async (_req: Request, res: Response) => {
 app.use('/api', router);
 
 // Error handling middleware
-app.use((err: Error, req: Request, res: Response) => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error('Error:', err);
 
-  // Provide detailed errors in development, simplified in production
   const errorResponse = {
     error: 'Internal Server Error',
     status: 500,

@@ -3,16 +3,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const jasmine_1 = __importDefault(require("jasmine"));
-const jasmine_spec_reporter_1 = require("jasmine-spec-reporter");
-const jasmine = new jasmine_1.default();
-jasmine.loadConfigFile('spec/support/jasmine.json');
-jasmine.clearReporters();
-jasmine.addReporter(new jasmine_spec_reporter_1.SpecReporter({
-    spec: {
-        displayPending: true,
-        displayStacktrace: 'pretty',
-    },
-}));
-jasmine.execute();
+require("jasmine");
+const db_test_utils_1 = __importDefault(require("./db-test.utils"));
+beforeAll(async () => {
+    await db_test_utils_1.default.init();
+    await db_test_utils_1.default.setupTestDb();
+});
+afterAll(async () => {
+    await db_test_utils_1.default.teardownTestDb();
+    await db_test_utils_1.default.cleanup();
+});
 //# sourceMappingURL=jasmine.js.map
