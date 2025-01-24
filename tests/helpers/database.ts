@@ -30,3 +30,15 @@ export const truncateTables = async (): Promise<void> => {
 export const closePool = async (): Promise<void> => {
   await pool.end();
 };
+
+export const testConnection = async (): Promise<void> => {
+  const client = await pool.connect();
+  try {
+    await client.query('SELECT NOW()');
+    console.log('Test database connection verified');
+  } finally {
+    client.release();
+  }
+};
+
+export default pool;

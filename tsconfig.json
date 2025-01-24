@@ -4,17 +4,18 @@
     "module": "commonjs",
     "lib": ["es2020"],
     "outDir": "./dist",
-    "rootDirs": ["./src"],
+    "rootDirs": ["./src", "./tests"],
     "strict": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node",
     "resolveJsonModule": true,
-    "types": ["node", "express", "jsonwebtoken"],
+    "types": ["node", "express", "jsonwebtoken", "jasmine"],
     "typeRoots": ["./src/types", "./node_modules/@types"],
     "sourceMap": true
   },
-  "include": ["src/**/*", "specs/**/*"],
+  "include": ["src/**/*", "tests/**/*", "specs/**/*"],
   "exclude": ["node_modules", "dist"]
 }

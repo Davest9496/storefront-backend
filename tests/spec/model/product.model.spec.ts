@@ -7,7 +7,7 @@ import {
   ProductWithOrders,
 } from '../../../src/types/product.types';
 
-describe('ProductModel', () => {
+describe('ProductModel Integration Tests', () => {
   let productModel: ProductModel;
   let mockClient: PoolClient;
 

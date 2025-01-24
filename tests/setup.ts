@@ -1,16 +1,15 @@
-import Jasmine = require('jasmine');
-import { SpecReporter, StacktraceOption } from 'jasmine-spec-reporter';
+import Jasmine from 'jasmine';
+import { SpecReporter } from 'jasmine-spec-reporter';
+import app from '../src/server'; // Add this import
 
-const jasmine = new Jasmine();
-jasmine.loadConfigFile('tests/jasmine.json');
+const jasmineInstance = new Jasmine();
 
-jasmine.clearReporters();
-jasmine.addReporter(
-  new SpecReporter({
-    spec: {
-      displayStacktrace: StacktraceOption.NONE,
-    },
-  })
-);
+// Configure Jasmine
+jasmineInstance.loadConfigFile('tests/jasmine.json');
+jasmineInstance.clearReporters();
+jasmineInstance.addReporter(new SpecReporter());
 
-jasmine.execute();
+// Makes app available to tests
+(global as any).app = app;
+
+jasmineInstance.execute();

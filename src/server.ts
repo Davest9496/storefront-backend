@@ -1,44 +1,39 @@
 import express, { Application, Request, Response, NextFunction } from 'express';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
-import { createPool, testConnection } from './config/db.config';
-import { router } from './routes/router';
-import { verifySecurityConfig } from './config/security.config';
+import { Pool } from 'pg';
+import router from './routes/router';
 
-// Load environment variables
 dotenv.config();
 
-// Verify security configuration before starting the server
-if (!verifySecurityConfig()) {
-    console.error('Failed to verify security configuration. Please check your environment variables.');
-    process.exit(1);
-}
-
-// Create and export the database pool
-export const dbPool = createPool();
+// Database configuration
+export const dbPool = new Pool({
+  host: process.env.DB_HOST || 'localhost',
+  database: process.env.DB_NAME || 'storefront_dev',
+  user: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD,
+  port: parseInt(process.env.DB_PORT || '5432'),
+});
 
 const app: Application = express();
 const port = process.env.PORT || 3000;
 
-// Middleware setup
+// Middleware
 app.use(bodyParser.json());
 app.use(express.json());
 
-// Health check endpoint to verify database connectivity
-app.get('/health', async (_req: Request, res: Response) => {
+// Health check endpoint
+app.get('/health', async (_req, res) => {
   try {
-    await testConnection(dbPool);
-    res.json({
-      status: 'healthy',
-      database: 'connected',
-      timestamp: new Date().toISOString(),
-    });
-  } catch {
-    res.status(500).json({
-      status: 'unhealthy',
-      database: 'disconnected',
-      timestamp: new Date().toISOString(),
-    });
+    const client = await dbPool.connect();
+    try {
+      await client.query('SELECT NOW()');
+      res.json({ status: 'healthy', database: 'connected' });
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    res.status(500).json({ status: 'unhealthy', database: 'disconnected' });
   }
 });
 
@@ -46,38 +41,22 @@ app.get('/health', async (_req: Request, res: Response) => {
 app.use('/api', router);
 
 // Error handling middleware
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error('Error:', err);
-
-  const errorResponse = {
-    error: 'Internal Server Error',
-    status: 500,
-    details: process.env.NODE_ENV === 'development' ? err.message : undefined,
-    timestamp: new Date().toISOString(),
-  };
-
-  res.status(500).json(errorResponse);
-});
-
-// Start server function with database connection check
-const startServer = async () => {
-  try {
-    // Verify database connection before starting server
-    await testConnection(dbPool);
-    console.log('Database connection verified');
-
-    app.listen(port, () => {
-      console.log(`Server started successfully on port: ${port}`);
-      console.log(`Health check available at: http://localhost:${port}/health`);
-    });
-  } catch (error) {
-    console.error('Failed to start server:', error);
-    process.exit(1); // Exit if we can't connect to the database
+app.use(
+  (
+    err: Error,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction
+  ) => {
+    console.error('Error:', err);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
-};
+);
 
-// Start the server
-startServer();
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(port, () => {
+    console.log(`Server started on port ${port}`);
+  });
+}
 
 export default app;

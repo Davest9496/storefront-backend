@@ -1,23 +1,18 @@
-import { Product } from './product.types';
-// Order Types
-export interface OrderStatus {
+export interface OrderProduct {
+  id?: number;
+  product_id: number;
+  quantity: number;
+  product?: {
+    product_name: string;
+    price: number;
+  };
+}
+
+export interface Order {
   id: number;
-  userId: number;
+  user_id: number;
   status: 'active' | 'complete';
   products: OrderProduct[];
-}
-
-export interface OrderProduct {
-  id: number;
-  productId: number;
-  quantity: number;
-  product?: Product;
-}
-
-export interface OrderHistory {
-  id: number;
-  userId: number;
-  orders: OrderStatus[];
 }
 
 export interface CreateOrderDTO {
@@ -26,4 +21,8 @@ export interface CreateOrderDTO {
     productId: number;
     quantity: number;
   }[];
+}
+
+export interface OrderStatus {
+  status: 'active' | 'complete';
 }

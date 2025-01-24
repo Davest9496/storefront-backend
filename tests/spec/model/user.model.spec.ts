@@ -4,7 +4,7 @@ import { AuthService } from '../../../src/services/auth.service';
 import { PoolClient } from 'pg';
 import { UpdateUserDTO } from '../../../src/types/user.types';
 
-describe('UserModel', () => {
+describe('UserModel Integration Tests', () => {
   let userService: UserService;
   let mockClient: PoolClient;
   let mockUserModel: jasmine.SpyObj<UserModel>;
