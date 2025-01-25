@@ -29,11 +29,12 @@ class ProductController {
         try {
             const productService = new product_service_1.ProductService(client);
             const product = await productService.getProductById(productId);
-            if (!product) {
-                res.status(404).json({ error: 'Product not found' });
-                return;
+            if (product) {
+                res.json(product);
             }
-            res.json(product);
+            else {
+                res.status(404).json({ error: 'Product not found' });
+            }
         }
         catch (error) {
             console.error('Error fetching product:', error);

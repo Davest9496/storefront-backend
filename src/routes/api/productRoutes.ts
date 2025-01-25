@@ -1,17 +1,15 @@
 import { Router } from 'express';
-import { AuthMiddleware } from '../../middleware/auth.middleware';
 import { ProductController } from '../../controllers/product.controller';
+import { AuthMiddleware } from '../../middleware/auth.middleware';
 
-const productRouter = Router();
+const router = Router();
 
-productRouter.get('/', ProductController.getProducts);
-productRouter.get('/:id', ProductController.getProductById);
-productRouter.get('/popular', ProductController.getTopProducts);
-productRouter.get('/category/:category', ProductController.getProductsByCategory);
-productRouter.post(
-  '/',
-  AuthMiddleware.verifyAuthToken,
-  ProductController.createProduct
-);
+router.get('/popular', ProductController.getTopProducts);
+router.get('/category/:category', ProductController.getProductsByCategory);
+router.get('/', ProductController.getProducts);
+router.get('/:id', ProductController.getProductById);
 
-export {productRouter};
+// Protected route
+router.post('/', AuthMiddleware.verifyAuthToken, ProductController.createProduct);
+
+export default router;

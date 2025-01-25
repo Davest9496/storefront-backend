@@ -1,201 +1,99 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateOrderStatus = exports.addProduct = exports.createOrder = exports.getCompletedOrders = exports.getCurrentOrder = void 0;
+exports.OrderController = void 0;
 const server_1 = require("../server");
-const getCurrentOrder = async (req, res) => {
-    try {
+const order_service_1 = require("../services/order.service");
+class OrderController {
+    static async getCurrentOrder(req, res) {
         const userId = parseInt(req.params.userId);
+        if (isNaN(userId)) {
+            res.status(400).json({ error: 'Invalid user ID' });
+            return;
+        }
         const client = await server_1.dbPool.connect();
         try {
-            // Get active order with its products
-            const result = await client.query(`SELECT 
-                    o.id as order_id,
-                    o.user_id,
-                    o.status,
-                    json_agg(
-                        json_build_object(
-                            'id', op.id,
-                            'product_id', op.product_id,
-                            'quantity', op.quantity,
-                            'product_name', p.product_name,
-                            'price', p.price
-                        )
-                    ) as products
-                FROM orders o
-                LEFT JOIN order_products op ON o.id = op.order_id
-                LEFT JOIN products p ON op.product_id = p.id
-                WHERE o.user_id = $1 AND o.status = 'active'
-                GROUP BY o.id`, [userId]);
-            if (result.rows.length === 0) {
+            const orderService = new order_service_1.OrderService(client);
+            const order = await orderService.getCurrentOrder(userId);
+            if (!order) {
                 res.status(404).json({ error: 'No active order found' });
                 return;
             }
-            res.json(result.rows[0]);
-        }
-        finally {
-            client.release();
-        }
-    }
-    catch (error) {
-        console.error('Error fetching current order:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-};
-exports.getCurrentOrder = getCurrentOrder;
-const getCompletedOrders = async (req, res) => {
-    try {
-        const userId = parseInt(req.params.userId);
-        const client = await server_1.dbPool.connect();
-        try {
-            const result = await client.query(`SELECT 
-                    o.id as order_id,
-                    o.user_id,
-                    o.status,
-                    json_agg(
-                        json_build_object(
-                            'id', op.id,
-                            'product_id', op.product_id,
-                            'quantity', op.quantity,
-                            'product_name', p.product_name,
-                            'price', p.price
-                        )
-                    ) as products
-                FROM orders o
-                LEFT JOIN order_products op ON o.id = op.order_id
-                LEFT JOIN products p ON op.product_id = p.id
-                WHERE o.user_id = $1 AND o.status = 'complete'
-                GROUP BY o.id`, [userId]);
-            res.json(result.rows);
-        }
-        finally {
-            client.release();
-        }
-    }
-    catch (error) {
-        console.error('Error fetching completed orders:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-};
-exports.getCompletedOrders = getCompletedOrders;
-const createOrder = async (req, res) => {
-    try {
-        const { userId, products } = req.body;
-        const client = await server_1.dbPool.connect();
-        try {
-            await client.query('BEGIN');
-            // Create order
-            const orderResult = await client.query('INSERT INTO orders (user_id, status) VALUES ($1, $2) RETURNING id', [userId, 'active']);
-            const orderId = orderResult.rows[0].id;
-            // Add products to order
-            for (const product of products) {
-                await client.query('INSERT INTO order_products (order_id, product_id, quantity) VALUES ($1, $2, $3)', [orderId, product.productId, product.quantity]);
-            }
-            await client.query('COMMIT');
-            // Fetch the complete order
-            const result = await client.query(`SELECT 
-                    o.id as order_id,
-                    o.user_id,
-                    o.status,
-                    json_agg(
-                        json_build_object(
-                            'id', op.id,
-                            'product_id', op.product_id,
-                            'quantity', op.quantity,
-                            'product_name', p.product_name,
-                            'price', p.price
-                        )
-                    ) as products
-                FROM orders o
-                LEFT JOIN order_products op ON o.id = op.order_id
-                LEFT JOIN products p ON op.product_id = p.id
-                WHERE o.id = $1
-                GROUP BY o.id`, [orderId]);
-            res.status(201).json(result.rows[0]);
+            res.json(order);
         }
         catch (error) {
-            await client.query('ROLLBACK');
-            throw error;
+            console.error('Error fetching current order:', error);
+            res.status(500).json({ error: 'Internal server error' });
         }
         finally {
             client.release();
         }
     }
-    catch (error) {
-        console.error('Error creating order:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-};
-exports.createOrder = createOrder;
-const addProduct = async (req, res) => {
-    try {
-        const orderId = parseInt(req.params.id);
-        const { productId, quantity } = req.body;
+    static async getCompletedOrders(req, res) {
+        const userId = parseInt(req.params.userId);
+        if (isNaN(userId)) {
+            res.status(400).json({ error: 'Invalid user ID' });
+            return;
+        }
         const client = await server_1.dbPool.connect();
         try {
-            // Verify order exists and is active
-            const orderCheck = await client.query('SELECT status FROM orders WHERE id = $1', [orderId]);
-            if (orderCheck.rows.length === 0) {
+            const orderService = new order_service_1.OrderService(client);
+            const orders = await orderService.getCompletedOrders(userId);
+            res.json(orders);
+        }
+        catch (error) {
+            console.error('Error fetching completed orders:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+        finally {
+            client.release();
+        }
+    }
+    static async createOrder(req, res) {
+        const orderData = req.body;
+        if (!orderData.userId || !orderData.products?.length) {
+            res.status(400).json({ error: 'Invalid order data' });
+            return;
+        }
+        const client = await server_1.dbPool.connect();
+        try {
+            const orderService = new order_service_1.OrderService(client);
+            const orderId = await orderService.createOrder(orderData);
+            const newOrder = await orderService.getCurrentOrder(orderData.userId);
+            res.status(201).json(newOrder);
+        }
+        catch (error) {
+            console.error('Error creating order:', error);
+            res.status(500).json({ error: 'Internal server error' });
+        }
+        finally {
+            client.release();
+        }
+    }
+    static async updateOrderStatus(req, res) {
+        const orderId = parseInt(req.params.id);
+        const status = req.body.status;
+        if (isNaN(orderId) || !['active', 'complete'].includes(status)) {
+            res.status(400).json({ error: 'Invalid order ID or status' });
+            return;
+        }
+        const client = await server_1.dbPool.connect();
+        try {
+            const orderService = new order_service_1.OrderService(client);
+            const success = await orderService.updateOrderStatus(orderId, status);
+            if (!success) {
                 res.status(404).json({ error: 'Order not found' });
                 return;
             }
-            if (orderCheck.rows[0].status !== 'active') {
-                res.status(400).json({ error: 'Cannot modify completed order' });
-                return;
-            }
-            // Add product to order
-            await client.query('INSERT INTO order_products (order_id, product_id, quantity) VALUES ($1, $2, $3)', [orderId, productId, quantity]);
-            // Fetch updated order
-            const result = await client.query(`SELECT 
-                    o.id as order_id,
-                    o.user_id,
-                    o.status,
-                    json_agg(
-                        json_build_object(
-                            'id', op.id,
-                            'product_id', op.product_id,
-                            'quantity', op.quantity,
-                            'product_name', p.product_name,
-                            'price', p.price
-                        )
-                    ) as products
-                FROM orders o
-                LEFT JOIN order_products op ON o.id = op.order_id
-                LEFT JOIN products p ON op.product_id = p.id
-                WHERE o.id = $1
-                GROUP BY o.id`, [orderId]);
-            res.json(result.rows[0]);
+            res.json({ message: 'Order status updated successfully' });
+        }
+        catch (error) {
+            console.error('Error updating order status:', error);
+            res.status(500).json({ error: 'Internal server error' });
         }
         finally {
             client.release();
         }
     }
-    catch (error) {
-        console.error('Error adding product to order:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-};
-exports.addProduct = addProduct;
-const updateOrderStatus = async (req, res) => {
-    try {
-        const orderId = parseInt(req.params.id);
-        const { status } = req.body;
-        const client = await server_1.dbPool.connect();
-        try {
-            const result = await client.query('UPDATE orders SET status = $1 WHERE id = $2 RETURNING id, user_id, status', [status, orderId]);
-            if (result.rows.length === 0) {
-                res.status(404).json({ error: 'Order not found' });
-                return;
-            }
-            res.json(result.rows[0]);
-        }
-        finally {
-            client.release();
-        }
-    }
-    catch (error) {
-        console.error('Error updating order status:', error);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-};
-exports.updateOrderStatus = updateOrderStatus;
+}
+exports.OrderController = OrderController;
 //# sourceMappingURL=order.controller.js.map

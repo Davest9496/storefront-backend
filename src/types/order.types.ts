@@ -1,28 +1,30 @@
+import { Product } from './product.types';
+
+export type OrderStatus = 'active' | 'complete';
+export type ProductCategory = 'headphones' | 'speakers' | 'earphones';
+
 export interface OrderProduct {
   id?: number;
   product_id: number;
   quantity: number;
-  product?: {
-    product_name: string;
-    price: number;
-  };
+  product?: Product
 }
 
 export interface Order {
   id: number;
   user_id: number;
-  status: 'active' | 'complete';
+  status: OrderStatus;
   products: OrderProduct[];
 }
 
 export interface CreateOrderDTO {
   userId: number;
-  products: {
+  products: Array<{
     productId: number;
     quantity: number;
-  }[];
+  }>;
 }
 
-export interface OrderStatus {
-  status: 'active' | 'complete';
+export interface UpdateOrderStatusDTO {
+  status: OrderStatus;
 }

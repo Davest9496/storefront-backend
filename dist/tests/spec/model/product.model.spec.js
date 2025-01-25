@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const product_model_1 = require("../../../src/models/product.model");
-describe('ProductModel', () => {
+describe('ProductModel Integration Tests', () => {
     let productModel;
     let mockClient;
     beforeEach(() => {

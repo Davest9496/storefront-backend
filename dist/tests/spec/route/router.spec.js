@@ -17,14 +17,9 @@ describe('Router Integration Tests', () => {
     afterAll(async () => {
         await (0, database_1.closePool)();
     });
-    beforeEach(() => {
-        app = (0, express_1.default)();
-        app.use(express_1.default.json());
-        app.use('/api', router_1.default);
-    });
     describe('User Routes', () => {
-        it('should mount user routes at /api/user', async () => {
-            await (0, supertest_1.default)(app).get('/api/user').expect(401);
+        it('should mount user routes at /api/users', async () => {
+            await (0, supertest_1.default)(app).get('/api/users').expect(401);
         });
     });
     describe('Auth Routes', () => {
@@ -35,7 +30,7 @@ describe('Router Integration Tests', () => {
                 email: 'test@example.com',
                 password: 'password123',
             })
-                .expect(400);
+                .expect(401);
         });
     });
     describe('Product Routes', () => {
