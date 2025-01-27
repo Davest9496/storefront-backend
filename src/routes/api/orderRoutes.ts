@@ -1,19 +1,35 @@
-// import { Router } from 'express';
-// import { AuthMiddleware } from '../../middleware/auth.middleware';
-// import {
-//   getCurrentOrder,
-//   getCompletedOrders,
-//   createOrder,
-//   addProduct,
-//   updateOrderStatus,
-// } from '../../handlers/order.handler';
+import { Router } from 'express';
+import { AuthMiddleware } from '../../../src/middleware/auth.middleware';
+import { OrderController } from '../../../src/controllers/order.controller';
 
-// const orderRouter = Router();
+const orderRouter = Router();
 
-// orderRouter.post('/', verifyAuthToken, createOrder);
-// orderRouter.get('/current/:userId', verifyAuthToken, getCurrentOrder);
-// orderRouter.get('/completed/:userId', verifyAuthToken, getCompletedOrders);
-// orderRouter.post('/:id/products', verifyAuthToken, addProduct);
-// orderRouter.put('/:id/status', verifyAuthToken, updateOrderStatus);
+// Create new order
+orderRouter.post(
+  '/',
+  AuthMiddleware.verifyAuthToken,
+  OrderController.createOrder
+);
 
-// export { orderRouter };
+// Get current active order for a user
+orderRouter.get(
+  '/current/:userId',
+  AuthMiddleware.verifyAuthToken,
+  OrderController.getCurrentOrder
+);
+
+// Get completed orders for a user
+orderRouter.get(
+  '/completed/:userId',
+  AuthMiddleware.verifyAuthToken,
+  OrderController.getCompletedOrders
+);
+
+// Update order status
+orderRouter.put(
+  '/:id/status',
+  AuthMiddleware.verifyAuthToken,
+  OrderController.updateOrderStatus
+);
+
+export default orderRouter;
