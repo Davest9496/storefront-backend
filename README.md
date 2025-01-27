@@ -1,65 +1,183 @@
-# Storefront Backend
+# Storefront Backend API
 
-## Getting Started
+This is a RESTful API built with Node.js/Express and PostgreSQL for an e-commerce storefront. It provides endpoints for managing products, users, and orders with JWT authentication.
 
-### Prerequisites
+## Table of Contents
+- Prerequisites
+- Installation
+- Environment Setup
+- Database Setup
+- Running the Application
+- Testing
+- API Documentation
+- Technologies Used
 
-- Docker
-- Docker Compose
-- Yarn
+## Prerequisites
 
-### Environment Variables
+Before you begin, ensure you have the following installed:
+- Node.js (v14 or higher)
+- npm or Yarn
+- PostgreSQL (v12 or higher)
+- Docker and Docker Compose (optional, for containerized setup)
 
-Ensure you have a `.env` file in the root of your project with the properties as described in `.env.example` in the root directory.
+## Installation
+- yarn install
 
-## Required Technologies
 
-Your application must make use of the following libraries:
+## Environment Setup
 
-- Postgres for the database
-- Node/Express for the application logic
-- dotenv from npm for managing environment variables
-- db-migrate from npm for migrations
-- jsonwebtoken from npm for working with JWTs
-- jasmine from npm for testing
+1. Create a `.env` file in the root directory with the following variables:
+```env
+NODE_ENV=development
+PORT=3000
 
-## Steps to Completion
+# Database Configuration
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=storefront_dev
+POSTGRES_TEST_DB=storefront_test
+POSTGRES_USER=your_username
+POSTGRES_PASSWORD=your_password
 
-### 1. Plan to Meet Requirements
+# JWT Configuration
+JWT_SECRET=your_jwt_secret_key
+SALT_ROUNDS=10
+```
 
-In this repo there is a `REQUIREMENTS.md` document which outlines what this API needs to supply for the frontend, as well as the agreed upon data shapes to be passed between front and backend. This is much like a document you might come across in real life when building or extending an API.
+## Database Setup
 
-Your first task is to read the requirements and update the document with the following:
+### Using Docker (Recommended)
+1. Start the PostgreSQL container:
+```bash
+docker-compose up -d
+```
 
-- Determine the RESTful route for each endpoint listed. Add the RESTful route and HTTP verb to the document so that the frontend developer can begin to build their fetch requests.  
-  **Example**: A SHOW route: 'blogs/:id' [GET]
+2. Create databases:
+```bash
+yarn db:create
+```
 
-- Design the Postgres database tables based off the data shape requirements. Add to the requirements document the database tables and columns being sure to mark foreign keys.  
-  **Example**: You can format this however you like but these types of information should be provided
-  Table: Books (id:varchar, title:varchar, author:varchar, published_year:varchar, publisher_id:string[foreign key to publishers table], pages:number)
+3. Run migrations:
+```bash
+yarn db:migrate up
+```
 
-**NOTE** It is important to remember that there might not be a one to one ratio between data shapes and database tables. Data shapes only outline the structure of objects being passed between frontend and API, the database may need multiple tables to store a single shape.
+### Manual Setup
+1. Create development and test databases:
+```sql
+CREATE DATABASE storefront_dev;
+CREATE DATABASE storefront_test;
+```
 
-### 2. DB Creation and Migrations
+2. Run migrations:
+```bash
+yarn db:migrate up
+```
 
-Now that you have the structure of the databse outlined, it is time to create the database and migrations. Add the npm packages dotenv and db-migrate that we used in the course and setup your Postgres database. If you get stuck, you can always revisit the database lesson for a reminder.
+3. (Optional) Populate with sample data:
+```bash
+yarn db:populate
+```
 
-You must also ensure that any sensitive information is hashed with bcrypt. If any passwords are found in plain text in your application it will not pass.
+## Running the Application
 
-### 3. Models
+### Development Mode
+```bash
+# Start with live reload
+yarn dev
 
-Create the models for each database table. The methods in each model should map to the endpoints in `REQUIREMENTS.md`. Remember that these models should all have test suites and mocks.
+# Build and start
+yarn build
+yarn start
+```
 
-### 4. Express Handlers
+The server will start at http://localhost:3000 (or the PORT specified in your .env)
 
-Set up the Express handlers to route incoming requests to the correct model method. Make sure that the endpoints you create match up with the enpoints listed in `REQUIREMENTS.md`. Endpoints must have tests and be CORS enabled.
+## Testing
 
-### 5. JWTs
+Run the test suite:
+```bash
+# Run all tests
+yarn test
 
-Add JWT functionality as shown in the course. Make sure that JWTs are required for the routes listed in `REQUIUREMENTS.md`.
+# Run tests with watch mode
+yarn test:watch
 
-### 6. QA and `README.md`
+# Run specific test file
+yarn test specs/path/to/file.spec.ts
+```
 
-Before submitting, make sure that your project is complete with a `README.md`. Your `README.md` must include instructions for setting up and running your project including how you setup, run, and connect to your database.
+## API Documentation
 
-Before submitting your project, spin it up and test each endpoint. If each one responds with data that matches the data shapes from the `REQUIREMENTS.md`, it is ready for submission!
+### Products
+- `GET /api/products` - Get all products
+- `GET /api/products/:id` - Get product by ID
+- `POST /api/products` - Create new product (requires auth token)
+- `GET /api/products/popular` - Get top 5 popular products
+- `GET /api/products/category/:category` - Get products by category
+
+### Users
+- `GET /api/users` - Get all users (requires auth token)
+- `GET /api/users/:id` - Get user by ID (requires auth token)
+- `POST /api/users` - Create new user
+
+### Orders
+- `GET /api/orders/current/:userId` - Get active order for user (requires auth token)
+- `GET /api/orders/completed/:userId` - Get completed orders for user (requires auth token)
+- `POST /api/orders` - Create new order (requires auth token)
+
+### Authentication
+- `POST /api/auth/login` - Login user
+- `POST /api/auth/signup` - Register new user
+
+## Technologies Used
+- Node.js & Express.js
+- TypeScript
+- PostgreSQL
+- JWT for authentication
+- Jasmine for testing
+- db-migrate for database migrations
+- Docker & Docker Compose
+
+## Scripts Reference
+
+```bash
+# Development
+yarn dev          # Start development server
+yarn build        # Build the project
+yarn watch        # Watch for changes
+
+# Database
+yarn db:create    # Create databases
+yarn db:migrate   # Run migrations
+yarn db:populate  # Populate with sample data
+
+# Testing
+yarn test         # Run tests
+yarn test:watch   # Run tests in watch mode
+
+# Utility
+yarn lint         # Run ESLint
+yarn format       # Format code with Prettier
+yarn clean        # Clean build artifacts
+yarn rebuild      # Clean and rebuild project
+```
+
+## Project Structure
+```
+├── src/
+│   ├── config/         # Configuration files
+│   ├── controllers/    # Route controllers
+│   ├── middleware/     # Custom middleware
+│   ├── models/         # Database models
+│   ├── routes/         # Route definitions
+│   ├── services/       # Business logic
+│   ├── types/          # TypeScript type definitions
+│   └── utils/          # Utility functions
+├── specs/              # Test files
+├── migrations/         # Database migrations
+└── docker/            # Docker configuration
+```
+
+## License
+This project is licensed under the ISC License.

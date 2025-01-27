@@ -1,4 +1,4 @@
-// Product Types & DTO for creating new records
+
 export interface Product {
   id: number;
   product_name: string;
@@ -7,6 +7,10 @@ export interface Product {
   product_desc: string | null;
   features: string[];
   accessories?: ProductAccessory[];
+}
+
+export interface ProductCategory {
+  category: 'headphones' | 'speakers' | 'earphones';
 }
 
 export interface CreateProductDTO {
