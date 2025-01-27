@@ -28,20 +28,31 @@ Before you begin, ensure you have the following installed:
 
 1. Create a `.env` file in the root directory with the following variables:
 ```env
-NODE_ENV=development
-PORT=3000
-
 # Database Configuration
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
-POSTGRES_DB=storefront_dev
-POSTGRES_TEST_DB=storefront_test
-POSTGRES_USER=your_username
-POSTGRES_PASSWORD=your_password
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=storefront_dev
+DB_USER=postgres
+DB_PASSWORD=storefront_dev
+
+# Server Configuration
+PORT=3000
+NODE_ENV=development
 
 # JWT Configuration
-JWT_SECRET=your_jwt_secret_key
+JWT_SECRET=very-long-and-secure-secret-key
+PASSWORD_PEPPER=very-long-and-secure-pepper-value
 SALT_ROUNDS=10
+```
+
+```env.test
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=storefront_test
+DB_USER=postgres
+DB_PASSWORD=storefront_test
+JWT_SECRET=JWT_SECRET
+PORT=3001
 ```
 
 ## Database Setup

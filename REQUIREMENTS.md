@@ -1,50 +1,69 @@
-# API Requirements
+-- Type enums
+CREATE TYPE order_status AS ENUM ('active', 'complete');
+CREATE TYPE product_category AS ENUM ('headphones', 'speakers', 'earphones');
 
-The company stakeholders want to create an online storefront to showcase their great product ideas. Users need to be able to browse an index of all products, see the specifics of a single product, and add products to an order that they can view in a cart page. You have been tasked with building the API that will support this application, and your coworker is building the frontend.
+-- Products table
+CREATE TABLE products (
+    id SERIAL PRIMARY KEY,
+    product_name VARCHAR(100) NOT NULL,
+    price DECIMAL(10,2) NOT NULL CHECK (price > 0),
+    category product_category NOT NULL,
+    product_desc TEXT,
+    features TEXT[]
+);
 
-These are the notes from a meeting with the frontend developer that describe what endpoints the API needs to supply, as well as data shapes the frontend and backend have agreed meet the requirements of the application.
+-- Product accessories
+CREATE TABLE product_accessories (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+    item_name VARCHAR(100) NOT NULL,
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    CONSTRAINT fk_product
+        FOREIGN KEY (product_id)
+        REFERENCES products(id)
+        ON DELETE CASCADE
+);
 
-## API Endpoints
+-- Users table
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_digest VARCHAR(250) NOT NULL
+);
 
-#### Products
+-- Orders table
+CREATE TABLE orders (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id),
+    status order_status NOT NULL DEFAULT 'active',
+    CONSTRAINT fk_user 
+        FOREIGN KEY (user_id) 
+        REFERENCES users(id) 
+        ON DELETE CASCADE
+);
 
-- Index
-- Show
-- Create [token required]
-- [OPTIONAL] Top 5 most popular products
-- [OPTIONAL] Products by category (args: product category)
+-- Order_Products table
+CREATE TABLE order_products (
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER REFERENCES orders(id),
+    product_id INTEGER REFERENCES products(id),
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    CONSTRAINT fk_order 
+        FOREIGN KEY (order_id) 
+        REFERENCES orders(id) 
+        ON DELETE CASCADE,
+    CONSTRAINT fk_product 
+        FOREIGN KEY (product_id) 
+        REFERENCES products(id) 
+        ON DELETE CASCADE
+);
 
-#### Users
-
-- Index [token required]
-- Show [token required]
-- Create N[token required]
-
-#### Orders
-
-- Current Order by user (args: user id)[token required]
-- [OPTIONAL] Completed Orders by user (args: user id)[token required]
-
-## Data Shapes
-
-#### Product
-
-- id
-- name
-- price
-- [OPTIONAL] category
-
-#### User
-
-- id
-- firstName
-- lastName
-- password
-
-#### Orders
-
-- id
-- id of each product in the order
-- quantity of each product in the order
-- user_id
-- status of order (active or complete)
+-- Create Indexes for better query performance
+CREATE INDEX idx_products_category ON products(category);
+CREATE INDEX idx_accessories_product ON product_accessories(product_id);
+CREATE INDEX idx_orders_user_id ON orders(user_id);
+CREATE INDEX idx_order_products_order_id ON order_products(order_id);
+CREATE INDEX idx_order_products_product_id ON order_products(product_id);
+CREATE INDEX idx_users_email ON users(email);
