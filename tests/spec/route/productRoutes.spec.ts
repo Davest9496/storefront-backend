@@ -1,10 +1,9 @@
 import request from 'supertest';
 import express from 'express';
 import productRouter from '../../../src/routes/api/productRoutes';
-import { createPool } from '../../../src/config/db.config';
 import { PoolClient } from 'pg';
 
-describe('Product Routes', () => {
+describe('Product Routes Integration Tests', () => {
   let app: express.Application;
   let mockClient: Partial<PoolClient>;
 
