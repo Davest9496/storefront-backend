@@ -1,15 +1,64 @@
+import dotenv from 'dotenv';
+import path from 'path';
 import Jasmine from 'jasmine';
-import { SpecReporter } from 'jasmine-spec-reporter';
-import app from '../src/server'; // Add this import
+import { SpecReporter, StacktraceOption } from 'jasmine-spec-reporter';
+import TestDb from './helpers/testDb';
 
-const jasmineInstance = new Jasmine();
+// Load test environment variables
+const envPath =
+  process.env.NODE_ENV === 'test'
+    ? path.join(__dirname, '..', '.env.test')
+    : path.join(__dirname, '..', '.env');
 
-// Configure Jasmine
-jasmineInstance.loadConfigFile('tests/jasmine.json');
-jasmineInstance.clearReporters();
-jasmineInstance.addReporter(new SpecReporter());
+// Verify test database
+const dbConfig = {
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+};
 
-// Makes app available to tests
-(global as any).app = app;
+console.log('Test Database Configuration:', dbConfig);
 
-jasmineInstance.execute();
+if (dbConfig.database !== 'storefront_test') {
+  console.error('ERROR: Tests must run on storefront_test database');
+  process.exit(1);
+}
+
+// Initialize Jasmine
+const jasmine = new Jasmine();
+jasmine.loadConfigFile('tests/support/jasmine.json');
+
+// Remove default reporter logs
+jasmine.clearReporters();
+
+// Add better reporter with database info
+jasmine.addReporter(
+  new SpecReporter({
+    spec: {
+      displayPending: true,
+      displayStacktrace: StacktraceOption.PRETTY,
+    },
+    summary: {
+      displayDuration: true,
+      displaySuccessful: true,
+      displayFailed: true,
+      displayPending: true,
+    },
+    prefixes: {
+      successful: `✓ [DB: ${dbConfig.database}] `,
+      failed: `✗ [DB: ${dbConfig.database}] `,
+      pending: `* [DB: ${dbConfig.database}] `,
+    },
+  })
+);
+
+// Global cleanup after all tests
+jasmine.env.addReporter({
+  jasmineDone: async () => {
+    await TestDb.closeAll();
+  },
+});
+
+// Start testing
+jasmine.execute();

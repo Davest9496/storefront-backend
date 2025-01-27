@@ -1,14 +1,13 @@
 import request from 'supertest';
 import app from '../../../src/server';
-import { createPool } from '../../../src/config/db.config';
+import TestDb from '../../helpers/testDb';
 import { AuthService } from '../../../src/services/auth.service';
 import { UserService } from '../../../src/services/user.service';
-
-const dbPool = createPool();
 
 describe('User Routes Integration Tests', () => {
   let authToken: string;
   let testUserId: number;
+  let client: any;
 
   // Test user data
   const testUser = {
@@ -20,7 +19,7 @@ describe('User Routes Integration Tests', () => {
 
   beforeAll(async () => {
     // Create a test user and get auth token
-    const client = await dbPool.connect();
+    client = await TestDb.getClient();
     try {
       const userService = new UserService(client);
       const hashedPassword = await AuthService.hashPassword(testUser.password);
@@ -48,21 +47,19 @@ describe('User Routes Integration Tests', () => {
         last_name: testUser.last_name,
       });
     } finally {
-      client.release();
+      // Don't release the client here as we'll need it for other operations
     }
   });
 
   afterAll(async () => {
-    // Clean up test data
-    const client = await dbPool.connect();
     try {
+      // Clean up test data
       await client.query('DELETE FROM users WHERE email = $1', [
         testUser.email,
       ]);
     } finally {
-      client.release();
+      // Release client in afterAll
     }
-    await dbPool.end();
   });
 
   describe('GET /api/users', () => {
@@ -168,21 +165,22 @@ describe('User Routes Integration Tests', () => {
   describe('DELETE /api/users/:id', () => {
     let deleteTestUserId: number;
     let deleteAuthToken: string;
+    let deleteClient: any;
 
     beforeEach(async () => {
       // Create a temporary user for delete tests
-      const client = await dbPool.connect();
+      deleteClient = await TestDb.getClient();
       try {
         // Generate a unique email with timestamp
         const uniqueEmail = `delete.test.${Date.now()}@example.com`;
 
         // Clean up any existing test users
-        await client.query('DELETE FROM users WHERE email LIKE $1', [
+        await deleteClient.query('DELETE FROM users WHERE email LIKE $1', [
           'delete.test.%@example.com',
         ]);
 
         const hashedPassword = await AuthService.hashPassword('TempPass123!');
-        const result = await client.query(
+        const result = await deleteClient.query(
           'INSERT INTO users (first_name, last_name, email, password_digest) VALUES ($1, $2, $3, $4) RETURNING id',
           ['Delete', 'Test', uniqueEmail, hashedPassword]
         );
@@ -193,8 +191,8 @@ describe('User Routes Integration Tests', () => {
           first_name: 'Delete',
           last_name: 'Test',
         });
-      } finally {
-        client.release();
+      } catch (error) {
+        throw error;
       }
     });
 
@@ -229,14 +227,13 @@ describe('User Routes Integration Tests', () => {
     });
 
     afterEach(async () => {
-      // Clean up any remaining test users
-      const client = await dbPool.connect();
       try {
-        await client.query('DELETE FROM users WHERE email LIKE $1', [
+        // Clean up any remaining test users
+        await deleteClient.query('DELETE FROM users WHERE email LIKE $1', [
           'delete.test.%@example.com',
         ]);
       } finally {
-        client.release();
+        return
       }
     });
   });

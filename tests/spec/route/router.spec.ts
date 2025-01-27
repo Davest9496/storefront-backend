@@ -1,20 +1,19 @@
 import express from 'express';
 import request from 'supertest';
 import router from '../../../src/routes/router';
-import { closePool } from '../../helpers/database';
+import TestDb from '../../helpers/testDb';
 
 describe('Router Integration Tests', () => {
   let app: express.Application;
 
   beforeAll(() => {
+    // Initialize the express app
     app = express();
     app.use(express.json());
     app.use('/api', router);
   });
 
-  afterAll(async () => {
-    await closePool();
-  });
+  // No need for afterAll since TestDb handles pool cleanup globally
 
   describe('User Routes', () => {
     it('should mount user routes at /api/users', async () => {

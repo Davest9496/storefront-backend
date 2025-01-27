@@ -135,6 +135,7 @@ yarn test specs/path/to/file.spec.ts
 - TypeScript
 - PostgreSQL
 - JWT for authentication
+- Bcrypt for password hashing
 - Jasmine for testing
 - db-migrate for database migrations
 - Docker & Docker Compose

@@ -1,10 +1,8 @@
 import request from 'supertest';
 import app from '../../../src/server';
-import { createPool } from '../../../src/config/db.config';
+import pool from '../../../src/database';
 import { AuthService } from '../../../src/services/auth.service';
 import { ProductCategory } from '../../../src/types/order.types';
-
-const dbPool = createPool();
 
 describe('Order Routes', () => {
   let authToken: string;
@@ -29,7 +27,7 @@ describe('Order Routes', () => {
   };
 
   beforeAll(async () => {
-    const client = await dbPool.connect();
+    const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
@@ -92,7 +90,7 @@ describe('Order Routes', () => {
   });
 
   afterAll(async () => {
-    const client = await dbPool.connect();
+    const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
@@ -119,7 +117,7 @@ describe('Order Routes', () => {
     } finally {
       client.release();
     }
-    await dbPool.end();
+    await pool.end();
   });
 
   describe('POST /api/orders', () => {
@@ -201,7 +199,7 @@ describe('Order Routes', () => {
   describe('GET /api/orders/completed/:userId', () => {
     beforeAll(async () => {
       if (testOrderId) {
-        const client = await dbPool.connect();
+        const client = await pool.connect();
         try {
           await client.query('UPDATE orders SET status = $1 WHERE id = $2', [
             'complete',
@@ -248,7 +246,7 @@ describe('Order Routes', () => {
 
     beforeEach(async () => {
       // Create a new order for status update tests
-      const client = await dbPool.connect();
+      const client = await pool.connect();
       try {
         const result = await client.query(
           'INSERT INTO orders (user_id, status) VALUES ($1, $2) RETURNING id',
