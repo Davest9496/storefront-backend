@@ -1,1 +1,0 @@
-{"version":3,"file":"users.js","sourceRoot":"","sources":["../../../tests/fixtures/users.ts"],"names":[],"mappings":";;;AAAa,QAAA,SAAS,GAAG;IACvB;QACE,UAAU,EAAE,MAAM;QAClB,SAAS,EAAE,MAAM;QACjB,KAAK,EAAE,kBAAkB;QACzB,QAAQ,EAAE,cAAc;KACzB;IACD;QACE,UAAU,EAAE,MAAM;QAClB,SAAS,EAAE,KAAK;QAChB,KAAK,EAAE,kBAAkB;QACzB,QAAQ,EAAE,cAAc;KACzB;CACF,CAAC"}
