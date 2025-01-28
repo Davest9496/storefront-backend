@@ -20,7 +20,7 @@ interface SecurityConfiguration {
 }
 
 // Function to ensure all required security settings are present
-const validateSecurityConfig = () => {
+const validateSecurityConfig = (): void => {
   const requiredEnvVars = ['JWT_SECRET', 'PASSWORD_PEPPER', 'SALT_ROUNDS'];
   const missing = requiredEnvVars.filter((envVar) => !process.env[envVar]);
 

@@ -21,8 +21,26 @@ Before you begin, ensure you have the following installed:
 - Docker and Docker Compose (optional, for containerized setup)
 
 ## Installation
-- yarn install
 
+### Using Yarn
+```bash
+yarn install
+```
+
+### Using Bash Script (Recommended for first-time setup)
+```bash
+# Make the setup script executable
+chmod +x setup.sh
+
+# Run the setup script
+./setup.sh
+```
+
+The setup script will:
+1. Create environment files from templates
+2. Install dependencies
+3. Set up databases
+4. Run initial migrations
 
 ## Environment Setup
 
@@ -45,7 +63,8 @@ PASSWORD_PEPPER=very-long-and-secure-pepper-value
 SALT_ROUNDS=10
 ```
 
-```env.test
+2. Create a `.env.test` file for testing:
+```env
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=storefront_test
@@ -57,7 +76,7 @@ PORT=3001
 
 ## Database Setup
 
-### Using Docker (Recommended)
+### Using Docker (Option 1)
 1. Start the PostgreSQL container:
 ```bash
 docker-compose up -d
@@ -70,24 +89,42 @@ yarn db:create
 
 3. Run migrations:
 ```bash
-yarn db:migrate up
+yarn migrate:up
+yarn migrate:up:test  # For test database
 ```
 
-### Manual Setup
+### Manual Setup (Option 2)
 1. Create development and test databases:
 ```sql
+psql -U postgres
 CREATE DATABASE storefront_dev;
 CREATE DATABASE storefront_test;
+GRANT ALL PRIVILEGES ON DATABASE storefront_dev TO postgres;
+GRANT ALL PRIVILEGES ON DATABASE storefront_test TO postgres;
 ```
 
 2. Run migrations:
 ```bash
-yarn db:migrate up
+yarn migrate:up        # For development database
+yarn migrate:up:test   # For test database
 ```
 
-3. (Optional) Populate with sample data:
+### Database Migration Scripts
 ```bash
-yarn db:populate
+# Create a new migration
+yarn migrate:create [migration_name]
+
+# Run migrations
+yarn migrate:up         # Development database
+yarn migrate:up:test    # Test database
+
+# Rollback migrations
+yarn migrate:down       # Development database
+yarn migrate:down:test  # Test database
+
+# Reset migrations
+yarn migrate:reset      # Development database
+yarn migrate:reset:test # Test database
 ```
 
 ## Running the Application
@@ -106,7 +143,6 @@ The server will start at http://localhost:3000 (or the PORT specified in your .e
 
 ## Testing
 
-Run the test suite:
 ```bash
 # Run all tests
 yarn test
@@ -116,6 +152,38 @@ yarn test:watch
 
 # Run specific test file
 yarn test specs/path/to/file.spec.ts
+```
+
+## Scripts Reference
+
+```bash
+# Development
+yarn dev          # Start development server
+yarn build        # Build the project
+yarn watch        # Watch for changes
+
+# Database
+yarn db:create    # Create databases
+yarn migrate:up   # Run migrations (dev)
+yarn migrate:up:test # Run migrations (test)
+yarn db:populate  # Populate with sample data
+
+# Migrations
+yarn migrate:create   # Create new migration
+yarn migrate:down     # Rollback migration (dev)
+yarn migrate:down:test # Rollback migration (test)
+yarn migrate:reset    # Reset migrations (dev)
+yarn migrate:reset:test # Reset migrations (test)
+
+# Testing
+yarn test         # Run tests
+yarn test:watch   # Run tests in watch mode
+
+# Utility
+yarn lint         # Run ESLint
+yarn format       # Format code with Prettier
+yarn clean        # Clean build
+yarn rebuild      # Clean and rebuild project
 ```
 
 ## API Documentation

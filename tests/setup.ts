@@ -1,14 +1,14 @@
-import dotenv from 'dotenv';
 import path from 'path';
 import Jasmine from 'jasmine';
 import { SpecReporter, StacktraceOption } from 'jasmine-spec-reporter';
 import TestDb from './helpers/testDb';
 
-// Load test environment variables
-const envPath =
-  process.env.NODE_ENV === 'test'
-    ? path.join(__dirname, '..', '.env.test')
-    : path.join(__dirname, '..', '.env');
+// Configure environment based on NODE_ENV
+if (process.env.NODE_ENV === 'test') {
+  require('dotenv').config({ path: path.join(__dirname, '..', '.env.test') });
+} else {
+  require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+}
 
 // Verify test database
 const dbConfig = {

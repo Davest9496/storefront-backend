@@ -20,6 +20,8 @@ describe('UserModel Integration Tests', () => {
       'delete',
     ]);
     userService = new UserService(mockClient);
+    // userService is private property and can not be made public
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (userService as any).userModel = mockUserModel;
   });
 

@@ -1,4 +1,4 @@
-import express, { Application, Request, Response, NextFunction } from 'express';
+import express, { Application } from 'express';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import { Pool } from 'pg';
@@ -32,7 +32,7 @@ app.get('/health', async (_req, res) => {
     } finally {
       client.release();
     }
-  } catch (error) {
+  } catch {
     res.status(500).json({ status: 'unhealthy', database: 'disconnected' });
   }
 });
@@ -41,17 +41,10 @@ app.get('/health', async (_req, res) => {
 app.use('/api', router);
 
 // Error handling middleware
-app.use(
-  (
-    err: Error,
-    _req: express.Request,
-    res: express.Response,
-    _next: express.NextFunction
-  ) => {
-    console.error('Error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-);
+app.use((err: Error, _req: express.Request, res: express.Response) => {
+  console.error('Error:', err);
+  res.status(500).json({ error: 'Internal Server Error' });
+});
 
 if (process.env.NODE_ENV !== 'test') {
   app.listen(port, () => {

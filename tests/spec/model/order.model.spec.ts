@@ -2,7 +2,6 @@ import { OrderModel } from '../../../src/models/order.model';
 import { PoolClient } from 'pg';
 import {
   Order,
-  OrderProduct,
   CreateOrderDTO,
   ProductCategory,
 } from '../../../src/types/order.types';

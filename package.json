@@ -10,16 +10,21 @@
     "watch": "tsc --watch",
     "test": "NODE_ENV=test ts-node tests/setup.ts",
     "test:watch": "NODE_ENV=test nodemon --exec 'yarn test'",
-    "lint": "eslint . --ext .ts",
+    "lint": "eslint .",
     "format": "prettier --write .",
     "clean": "rm -rf dist && rm -rf node_modules/.cache",
     "clean:dist": "rm -rf dist",
     "clean:cache": "rm -rf node_modules/.cache",
     "rebuild": "yarn run clean && yarn install && yarn run build",
     "check:env": "ts-node -e \"import { verifySecurityConfig } from './src/config/security.config'; console.log('Security config status:', verifySecurityConfig());\"",
-    "db:create": "ts-node src/config/create-db.utils.ts",
-    "db:test": "ts-node src/utils/db-test.utils.ts",
-    "db:migrate": "db-migrate",
+    "test:db": "NODE_ENV=test ts-node tests/scripts/run-db-test.ts",
+    "migrate:create": "db-migrate create",
+    "migrate:up": "db-migrate up",
+    "migrate:down": "db-migrate down",
+    "migrate:reset": "db-migrate reset",
+    "migrate:up:test": "NODE_ENV=test db-migrate up --config database.json -e test",
+    "migrate:down:test": "NODE_ENV=test db-migrate down --config database.json -e test",
+    "migrate:reset:test": "NODE_ENV=test db-migrate reset --config database.json -e test",
     "db:populate": "psql -d storefront_dev -f migrations/sqls/populate_db.sql"
   },
   "dependencies": {
@@ -35,14 +40,15 @@
     "typescript": "^5.3.3"
   },
   "devDependencies": {
+    "@eslint/js": "^9.19.0",
     "@types/express": "^4.17.21",
     "@types/jasmine": "^5.1.5",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^20.11.5",
     "@types/pg": "^8.10.9",
     "@types/supertest": "^6.0.2",
-    "@typescript-eslint/eslint-plugin": "^6.19.1",
-    "@typescript-eslint/parser": "^6.19.1",
+    "@typescript-eslint/eslint-plugin": "^8.22.0",
+    "@typescript-eslint/parser": "^8.22.0",
     "eslint": "^8.56.0",
     "jasmine": "^5.5.0",
     "jasmine-spec-reporter": "^7.0.0",
@@ -51,7 +57,8 @@
     "prettier": "^3.2.4",
     "supertest": "^6.3.4",
     "ts-node": "^10.9.2",
-    "tsc-watch": "^6.0.4"
+    "tsc-watch": "^6.0.4",
+    "typescript-eslint": "^8.22.0"
   },
   "license": "ISC"
 }

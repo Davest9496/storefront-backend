@@ -3,7 +3,6 @@ import { PoolClient } from 'pg';
 import {
   CreateOrderDTO,
   Order,
-  OrderProduct,
   OrderStatus,
 } from '../types/order.types';
 

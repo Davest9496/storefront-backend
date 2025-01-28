@@ -2,6 +2,14 @@ import { AuthService } from '../../../src/services/auth.service';
 import * as jwt from 'jsonwebtoken';
 import { SecurityConfig } from '../../../src/config/security.config';
 
+interface JWTPayload {
+  id: number;
+  firstName: string;
+  lastName: string;
+  iat?: number;
+  exp?: number;
+}
+
 describe('AuthService', () => {
   const validPassword = 'ValidPass123!';
   const invalidPassword = 'weak';
@@ -36,9 +44,12 @@ describe('AuthService', () => {
 
   it('should generate a valid token', () => {
     const token = AuthService.generateToken(user);
-    const decoded = jwt.verify(token, SecurityConfig.jwt.secret as string);
+    const decoded = jwt.verify(
+      token,
+      SecurityConfig.jwt.secret as string
+    ) as JWTPayload;
     expect(decoded).toBeDefined();
-    expect((decoded as any).id).toBe(user.id);
+    expect(decoded.id).toBe(user.id);
   });
 
   it('should validate a valid token', () => {

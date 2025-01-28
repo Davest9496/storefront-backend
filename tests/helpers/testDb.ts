@@ -1,9 +1,9 @@
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
 import getDBConfig from '../../src/config/db.config';
 
 class TestDb {
   private static pool: Pool | null = null;
-  private static clients: any[] = [];
+  private static clients: PoolClient[] = [];
 
   static getPool(): Pool {
     if (!this.pool) {
@@ -12,13 +12,13 @@ class TestDb {
     return this.pool;
   }
 
-  static async getClient() {
+  static async getClient(): Promise<PoolClient> {
     const client = await this.getPool().connect();
     this.clients.push(client);
     return client;
   }
 
-  static async closeAll() {
+  static async closeAll(): Promise<void> {
     // Release all clients
     for (const client of this.clients) {
       if (client) {

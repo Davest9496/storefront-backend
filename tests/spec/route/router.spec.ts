@@ -1,7 +1,6 @@
 import express from 'express';
 import request from 'supertest';
 import router from '../../../src/routes/router';
-import TestDb from '../../helpers/testDb';
 
 describe('Router Integration Tests', () => {
   let app: express.Application;

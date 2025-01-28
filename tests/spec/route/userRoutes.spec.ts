@@ -2,12 +2,20 @@ import request from 'supertest';
 import app from '../../../src/server';
 import TestDb from '../../helpers/testDb';
 import { AuthService } from '../../../src/services/auth.service';
-import { UserService } from '../../../src/services/user.service';
+import { PoolClient } from 'pg';
+
+interface TestUser {
+  id?: number;
+  firstName: string;
+  lastName: string;
+  email: string;
+  password?: string;
+}
 
 describe('User Routes Integration Tests', () => {
   let authToken: string;
   let testUserId: number;
-  let client: any;
+  let client: PoolClient;
 
   // Test user data
   const testUser = {
@@ -21,7 +29,6 @@ describe('User Routes Integration Tests', () => {
     // Create a test user and get auth token
     client = await TestDb.getClient();
     try {
-      const userService = new UserService(client);
       const hashedPassword = await AuthService.hashPassword(testUser.password);
 
       // Clear test data
@@ -47,7 +54,7 @@ describe('User Routes Integration Tests', () => {
         last_name: testUser.last_name,
       });
     } finally {
-      // Don't release the client here as we'll need it for other operations
+      // Pass
     }
   });
 
@@ -58,7 +65,7 @@ describe('User Routes Integration Tests', () => {
         testUser.email,
       ]);
     } finally {
-      // Release client in afterAll
+      // Pass
     }
   });
 
@@ -72,7 +79,7 @@ describe('User Routes Integration Tests', () => {
       expect(Array.isArray(response.body)).toBeTruthy();
       expect(response.body.length).toBeGreaterThan(0);
 
-      const user = response.body.find((u: any) => u.id === testUserId);
+      const user = response.body.find((u: TestUser) => u.id === testUserId);
       expect(user).toBeDefined();
       expect(user.firstName).toBe(testUser.first_name);
       expect(user.lastName).toBe(testUser.last_name);
@@ -165,7 +172,7 @@ describe('User Routes Integration Tests', () => {
   describe('DELETE /api/users/:id', () => {
     let deleteTestUserId: number;
     let deleteAuthToken: string;
-    let deleteClient: any;
+    let deleteClient: PoolClient;
 
     beforeEach(async () => {
       // Create a temporary user for delete tests
@@ -233,7 +240,7 @@ describe('User Routes Integration Tests', () => {
           'delete.test.%@example.com',
         ]);
       } finally {
-        return
+        return;
       }
     });
   });

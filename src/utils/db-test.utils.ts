@@ -1,11 +1,10 @@
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
-// import path from 'path';
 
 class DatabaseTestUtils {
   private static pool: Pool;
 
-  static async init() {
+  static async init(): Promise<void> {
     dotenv.config({ path: '.env.test' });
 
     const dbConfig = {
@@ -22,7 +21,7 @@ class DatabaseTestUtils {
     await this.testConnection();
   }
 
-  static async testConnection() {
+  static async testConnection(): Promise<void> {
     const client = await this.pool.connect();
     try {
       await client.query('SELECT NOW()');
@@ -31,7 +30,7 @@ class DatabaseTestUtils {
     }
   }
 
-  static async setupTestDb() {
+  static async setupTestDb(): Promise<void> {
     const client = await this.pool.connect();
     try {
       await client.query(`
@@ -82,7 +81,7 @@ class DatabaseTestUtils {
     }
   }
 
-  static async teardownTestDb() {
+  static async teardownTestDb(): Promise<void> {
     const client = await this.pool.connect();
     try {
       await client.query(`
@@ -98,7 +97,7 @@ class DatabaseTestUtils {
     }
   }
 
-  static async cleanup() {
+  static async cleanup(): Promise<void> {
     await this.pool.end();
   }
 

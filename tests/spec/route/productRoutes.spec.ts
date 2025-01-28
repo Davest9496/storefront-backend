@@ -3,11 +3,25 @@ import app from '../../../src/server';
 import TestDb from '../../helpers/testDb';
 import { AuthService } from '../../../src/services/auth.service';
 import { ProductCategory } from '../../../src/types/product.types';
+import { PoolClient } from 'pg';
+
+interface TestProduct {
+  id: number;
+  product_name: string;
+  price: number;
+  category: ProductCategory;
+  product_desc?: string;
+  features?: string[];
+  accessories?: Array<{
+    item_name: string;
+    quantity: number;
+  }>;
+}
 
 describe('Product Routes Integration Tests', () => {
   let authToken: string;
   let testProductId: number;
-  let client: any;
+  let client: PoolClient;
 
   // Test data
   const testUser = {
@@ -192,7 +206,9 @@ describe('Product Routes Integration Tests', () => {
       expect(Array.isArray(response.body)).toBeTruthy();
       expect(response.body.length).toBeGreaterThan(0);
 
-      const product = response.body.find((p: any) => p.id === testProductId);
+      const product = response.body.find(
+        (p: TestProduct) => p.id === testProductId
+      );
       expect(product).toBeDefined();
       expect(product.product_name).toBe(testProduct.product_name);
     });
@@ -231,7 +247,7 @@ describe('Product Routes Integration Tests', () => {
       expect(response.status).toBe(200);
       expect(Array.isArray(response.body)).toBeTruthy();
       expect(
-        response.body.some((p: any) => p.id === testProductId)
+        response.body.some((p: TestProduct) => p.id === testProductId)
       ).toBeTruthy();
     });
 

@@ -18,7 +18,7 @@ const pool = new Pool({
   database: 'postgres',
 });
 
-async function createDb() {
+async function createDb(): Promise<void> {
   try {
     // Drop dev database if it exists
     await pool.query(`DROP DATABASE IF EXISTS ${POSTGRES_DB}`);
