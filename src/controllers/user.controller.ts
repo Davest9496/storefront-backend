@@ -1,97 +1,96 @@
-import { Request, Response } from 'express';
-import { dbPool } from '../server';
-import { UserService } from '../services/user.service';
+import { UserStore } from '../models/user.model';
+import { CreateUserDTO, User, RecentOrder } from '../types';
+import client from '../config/database.config';
 
 export class UserController {
-  static async getUsers(req: Request, res: Response): Promise<void> {
-    const client = await dbPool.connect();
+  private store: UserStore;
+
+  constructor() {
+    this.store = new UserStore(client);
+  }
+
+  async create(
+    userData: CreateUserDTO
+  ): Promise<Omit<User, 'password_digest'>> {
     try {
-      const userService = new UserService(client);
-      const users = await userService.getAllUsers();
-      res.json(users);
+      // Check for existing email before creating
+      const existingUser = await this.store.findByEmail(userData.email);
+      if (existingUser) {
+        throw new Error('Email already exists');
+      }
+      return await this.store.create(userData);
     } catch (error) {
-      console.error('Error fetching users:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    } finally {
-      client.release();
+      // Propagate the error with its original message
+      throw error;
     }
   }
 
-  static async getUserById(req: Request, res: Response): Promise<void> {
-    const userId = parseInt(req.params.id);
-    const client = await dbPool.connect();
-
+  async index(): Promise<Omit<User, 'password_digest'>[]> {
     try {
-      const userService = new UserService(client);
-      const user = await userService.getProfile(userId);
+      return await this.store.index();
+    } catch (error) {
+      throw new Error(`Error retrieving users: ${error}`);
+    }
+  }
 
+  async show(id: number): Promise<Omit<User, 'password_digest'>> {
+    try {
+      const user = await this.store.show(id);
       if (!user) {
-        res.status(404).json({ error: 'User not found' });
-        return;
+        throw new Error('User not found');
       }
-
-      res.json(user);
+      return user;
     } catch (error) {
-      console.error('Error fetching user:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    } finally {
-      client.release();
+      throw error;
     }
   }
 
-  static async updateUser(req: Request, res: Response): Promise<void> {
-    const userId = parseInt(req.params.id);
-
-    if (req.user?.id !== userId) {
-      res.status(403).json({ error: 'Unauthorized to update this user' });
-      return;
-    }
-
-    const client = await dbPool.connect();
+  async update(
+    id: number,
+    userData: Partial<Omit<CreateUserDTO, 'password'>>
+  ): Promise<Omit<User, 'password_digest'>> {
     try {
-      const userService = new UserService(client);
-      const updatedUser = await userService.updateProfile(userId, req.body);
+      // If updating email, check for conflicts
+      if (userData.email) {
+        const conn = await client.connect();
+        try {
+          // We need to check for existing email, excluding the current user
+          const result = await conn.query(
+            'SELECT id FROM users WHERE email = $1 AND id != $2',
+            [userData.email, id]
+          );
 
-      if (!updatedUser) {
-        res.status(404).json({ error: 'User not found' });
-        return;
+          if (result.rows.length > 0) {
+            throw new Error('Email already exists');
+          }
+        } finally {
+          conn.release();
+        }
       }
 
-      res.json(updatedUser);
+      return await this.store.update(id, userData);
     } catch (error) {
-      console.error('Error updating user:', error);
+      // Make sure to propagate the error with its message intact
       if (error instanceof Error) {
-        res.status(400).json({ error: error.message });
-      } else {
-        res.status(500).json({ error: 'Internal server error' });
+        throw error;
       }
-    } finally {
-      client.release();
+      throw new Error('An unexpected error occurred during update');
     }
   }
 
-  static async deleteUser(req: Request, res: Response): Promise<void> {
-    const userId = parseInt(req.params.id);
-
-    if (req.user?.id !== userId) {
-      res.status(403).json({ error: 'Unauthorized to delete this user' });
-      return;
-    }
-
-    const client = await dbPool.connect();
+  async delete(id: number): Promise<void> {
     try {
-      const userService = new UserService(client);
-      await userService.deleteAccount(userId);
-      res.json({ message: 'User successfully deleted' });
+      await this.store.delete(id);
     } catch (error) {
-      console.error('Error deleting user:', error);
-      if (error instanceof Error) {
-        res.status(400).json({ error: error.message });
-      } else {
-        res.status(500).json({ error: 'Internal server error' });
-      }
-    } finally {
-      client.release();
+      throw new Error(`Error deleting user: ${error}`);
+    }
+  }
+
+  async getRecentOrders(userId: number): Promise<RecentOrder[]> {
+    try {
+      return await this.store.getRecentOrders(userId);
+    } catch (error) {
+      throw new Error(`Error retrieving recent orders: ${error}`);
     }
   }
 }

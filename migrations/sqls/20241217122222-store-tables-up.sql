@@ -1,30 +1,16 @@
--- Type enums
+-- First, drop existing tables and types if they exist
+DROP TABLE IF EXISTS order_products CASCADE;
+DROP TABLE IF EXISTS orders CASCADE;
+DROP TABLE IF EXISTS products CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+DROP TYPE IF EXISTS order_status CASCADE;
+DROP TYPE IF EXISTS product_category CASCADE;
+
+-- Create custom types
 CREATE TYPE order_status AS ENUM ('active', 'complete');
 CREATE TYPE product_category AS ENUM ('headphones', 'speakers', 'earphones');
 
--- Products table
-CREATE TABLE products (
-    id SERIAL PRIMARY KEY,
-    product_name VARCHAR(100) NOT NULL,
-    price DECIMAL(10,2) NOT NULL CHECK (price > 0),
-    category product_category NOT NULL,
-    product_desc TEXT,
-    features TEXT[]
-);
-
--- Product accessories
-CREATE TABLE product_accessories (
-    id SERIAL PRIMARY KEY,
-    product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
-    item_name VARCHAR(100) NOT NULL,
-    quantity INTEGER NOT NULL CHECK (quantity > 0),
-    CONSTRAINT fk_product
-        FOREIGN KEY (product_id)
-        REFERENCES products(id)
-        ON DELETE CASCADE
-);
-
--- Users table
+-- Create users table
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     first_name VARCHAR(100) NOT NULL,
@@ -33,10 +19,22 @@ CREATE TABLE users (
     password_digest VARCHAR(250) NOT NULL
 );
 
--- Orders table
+-- Create products table
+CREATE TABLE products (
+    id SERIAL PRIMARY KEY,
+    product_name VARCHAR(100) NOT NULL,
+    price DECIMAL(10,2) NOT NULL CHECK (price > 0),
+    category product_category NOT NULL,
+    product_desc VARCHAR(250),
+    image_name VARCHAR(255) NOT NULL,
+    product_features TEXT[],
+    product_accessories TEXT[]
+);
+
+-- Create orders table
 CREATE TABLE orders (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id),
+    user_id INTEGER NOT NULL,
     status order_status NOT NULL DEFAULT 'active',
     CONSTRAINT fk_user 
         FOREIGN KEY (user_id) 
@@ -44,11 +42,11 @@ CREATE TABLE orders (
         ON DELETE CASCADE
 );
 
--- Order_Products table
+-- Create order_products join table
 CREATE TABLE order_products (
     id SERIAL PRIMARY KEY,
-    order_id INTEGER REFERENCES orders(id),
-    product_id INTEGER REFERENCES products(id),
+    order_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
     quantity INTEGER NOT NULL CHECK (quantity > 0),
     CONSTRAINT fk_order 
         FOREIGN KEY (order_id) 
@@ -60,10 +58,9 @@ CREATE TABLE order_products (
         ON DELETE CASCADE
 );
 
--- Create Indexes for better query performance
+-- Create helpful indexes
+CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_products_category ON products(category);
-CREATE INDEX idx_accessories_product ON product_accessories(product_id);
 CREATE INDEX idx_orders_user_id ON orders(user_id);
 CREATE INDEX idx_order_products_order_id ON order_products(order_id);
 CREATE INDEX idx_order_products_product_id ON order_products(product_id);
-CREATE INDEX idx_users_email ON users(email);

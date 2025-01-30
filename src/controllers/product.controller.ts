@@ -1,104 +1,137 @@
 import { Request, Response } from 'express';
-import { dbPool } from '../server';
-import { ProductService } from '../services/product.service';
+import { Pool } from 'pg';
+import { ProductStore } from '../models/product.model';
+import { CreateProductDTO, ProductCategory } from '../types';
+import client from '../config/database.config';
 
 export class ProductController {
-  static async getProducts(_req: Request, res: Response): Promise<void> {
-    const client = await dbPool.connect();
+  private store: ProductStore;
+
+  constructor(dbClient: Pool = client) {
+    this.store = new ProductStore(dbClient);
+  }
+
+  // GET /api/products
+  async index(_req: Request, res: Response): Promise<void> {
     try {
-      const productService = new ProductService(client);
-      const products = await productService.getAllProducts();
+      const products = await this.store.index();
       res.json(products);
     } catch (error) {
-      console.error('Error fetching products:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    } finally {
-      client.release();
+      console.error('Error getting products:', error);
+      res.status(500).json({
+        error: 'Could not retrieve products',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   }
 
-  static async getProductById(req: Request, res: Response): Promise<void> {
-    const productId = parseInt(req.params.id);
-    if (isNaN(productId)) {
-      res.status(400).json({ error: 'Invalid product ID' });
-      return;
-    }
-
-    const client = await dbPool.connect();
+  // GET /api/products/:id
+  async show(req: Request, res: Response): Promise<void> {
     try {
-      const productService = new ProductService(client);
-      const product = await productService.getProductById(productId);
+      const productId = parseInt(req.params.id);
+      if (isNaN(productId)) {
+        res.status(400).json({ error: 'Invalid product ID' });
+        return;
+      }
 
-      if (product) {
+      try {
+        const product = await this.store.show(productId);
         res.json(product);
-      } else {
-        res.status(404).json({ error: 'Product not found' });
-      }
-    } catch (error) {
-      console.error('Error fetching product:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    } finally {
-      client.release();
-    }
-  }
-
-  static async getTopProducts(_req: Request, res: Response): Promise<void> {
-    const client = await dbPool.connect();
-    try {
-      const productService = new ProductService(client);
-      const products = await productService.getTopProducts();
-      res.json(products);
-    } catch (error) {
-      console.error('Error fetching top products:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    } finally {
-      client.release();
-    }
-  }
-
-  static async getProductsByCategory(
-    req: Request,
-    res: Response
-  ): Promise<void> {
-    const { category } = req.params;
-    const client = await dbPool.connect();
-
-    try {
-      const productService = new ProductService(client);
-      const products = await productService.getProductsByCategory(category);
-      res.json(products);
-    } catch (error) {
-      if (error instanceof Error && error.message === 'Invalid category') {
-        res.status(400).json({ error: 'Invalid category' });
-      } else {
-        console.error('Error fetching products by category:', error);
-        res.status(500).json({ error: 'Internal server error' });
-      }
-    } finally {
-      client.release();
-    }
-  }
-
-  static async createProduct(req: Request, res: Response): Promise<void> {
-    const client = await dbPool.connect();
-    try {
-      const productService = new ProductService(client);
-      const product = await productService.createProduct(req.body);
-      res.status(201).json(product);
-    } catch (error) {
-      if (error instanceof Error) {
-        if (
-          error.message.includes('required') ||
-          error.message.includes('Invalid')
-        ) {
-          res.status(400).json({ error: error.message });
-        } else {
-          console.error('Error creating product:', error);
-          res.status(500).json({ error: 'Internal server error' });
+      } catch (err) {
+        if (err instanceof Error && err.message.includes('not found')) {
+          res.status(404).json({ error: 'Product not found' });
+          return;
         }
+        throw err;
       }
-    } finally {
-      client.release();
+    } catch (error) {
+      console.error('Error getting product:', error);
+      res.status(500).json({
+        error: 'Could not retrieve product',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
+  }
+
+  // POST /api/products
+  async create(req: Request, res: Response): Promise<void> {
+    try {
+      const productData: CreateProductDTO = {
+        product_name: req.body.product_name,
+        price: parseFloat(req.body.price),
+        category: req.body.category,
+        product_desc: req.body.product_desc,
+        image_name: req.body.image_name,
+        product_features: req.body.product_features,
+        product_accessories: req.body.product_accessories,
+      };
+
+      // Validate required fields
+      if (!this.validateProductData(productData)) {
+        res.status(400).json({ error: 'Missing or invalid required fields' });
+        return;
+      }
+
+      const newProduct = await this.store.create(productData);
+      res.status(201).json(newProduct);
+    } catch (error) {
+      console.error('Error creating product:', error);
+      res.status(500).json({
+        error: 'Could not create product',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  // GET /api/products/category/:category
+  async getByCategory(req: Request, res: Response): Promise<void> {
+    try {
+      const category = req.params.category as ProductCategory;
+      if (!this.isValidCategory(category)) {
+        res.status(400).json({ error: 'Invalid product category' });
+        return;
+      }
+
+      const products = await this.store.getByCategory(category);
+      res.json(products);
+    } catch (error) {
+      console.error('Error getting products by category:', error);
+      res.status(500).json({
+        error: 'Could not retrieve products',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  // GET /api/products/popular
+  async getPopularProducts(_req: Request, res: Response): Promise<void> {
+    try {
+      const products = await this.store.getPopularProducts(5);
+      res.json(products);
+    } catch (error) {
+      console.error('Error getting popular products:', error);
+      res.status(500).json({
+        error: 'Could not retrieve popular products',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  private validateProductData(data: CreateProductDTO): boolean {
+    return !!(
+      data.product_name &&
+      typeof data.product_name === 'string' &&
+      data.price &&
+      typeof data.price === 'number' &&
+      data.price > 0 &&
+      this.isValidCategory(data.category) &&
+      data.image_name &&
+      Array.isArray(data.product_features) &&
+      Array.isArray(data.product_accessories)
+    );
+  }
+
+  private isValidCategory(category: string): category is ProductCategory {
+    return ['headphones', 'speakers', 'earphones'].includes(category);
   }
 }

@@ -1,14 +1,13 @@
 import { Router } from 'express';
-import { userRouter } from './api/userRoutes';
-import { authRouter } from './api/authRoutes';
-import productRouter from './api/productRoutes';
-import orderRouter from './api/orderRoutes';
+import userRoutes from './api/user.routes';
+import productRoutes from './api/product.route';
+import orderRoutes from './api/order.route';
 
 const router = Router();
 
-router.use('/users', userRouter);
-router.use('/auth', authRouter);
-router.use('/products', productRouter);
-router.use('/orders', orderRouter)
+router.use('/users', userRoutes);
+router.use('/products', productRoutes);
+router.use('/orders', orderRoutes)
+
 
 export default router;

@@ -1,108 +1,111 @@
-import { PoolClient } from 'pg';
-import {
-  Product,
-  ProductWithOrders,
-  CreateProductDTO,
-  ProductAccessory,
-} from '../types/product.types';
+import { Pool } from 'pg';
+import { Product, CreateProductDTO, ProductCategory } from '../types';
 
-export class ProductModel {
-  constructor(private client: PoolClient) {}
+export class ProductStore {
+  constructor(private client: Pool) {}
 
-  async findAll(): Promise<Product[]> {
-    const result = await this.client.query<Product>(
-      `SELECT id, product_name, price, category, product_desc, features 
-       FROM products`
-    );
-    return result.rows;
+  // Convert database row to Product type, handling price conversion
+  private convertProduct(row: Record<string, unknown>): Product {
+    return {
+      ...row,
+      price: parseFloat(row.price as string),
+      product_features: row.product_features as string[],
+      product_accessories: row.product_accessories as string[],
+    } as Product;
   }
 
-  async findById(id: number): Promise<Product | null> {
-    const result = await this.client.query<Product>(
-      `SELECT id, product_name, price, category, product_desc, features 
-       FROM products WHERE id = $1`,
-      [id]
-    );
-    return result.rows[0] || null;
+  async create(product: CreateProductDTO): Promise<Product> {
+    try {
+      const sql = `
+                INSERT INTO products (
+                    product_name, price, category, product_desc, 
+                    image_name, product_features, product_accessories
+                ) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7) 
+                RETURNING *
+            `;
+
+      const conn = await this.client.connect();
+      const result = await conn.query(sql, [
+        product.product_name,
+        product.price,
+        product.category,
+        product.product_desc || '', // Handle optional field
+        product.image_name,
+        product.product_features,
+        product.product_accessories,
+      ]);
+      conn.release();
+
+      return this.convertProduct(result.rows[0]);
+    } catch (err) {
+      throw new Error(`Could not add new product. Error: ${err}`);
+    }
   }
 
-  async findByCategory(category: string): Promise<Product[]> {
-    const result = await this.client.query<Product>(
-      `SELECT id, product_name, price, category, product_desc, features 
-       FROM products WHERE category = $1`,
-      [category]
-    );
-    return result.rows;
+  async index(): Promise<Product[]> {
+    try {
+      const sql = 'SELECT * FROM products ORDER BY id';
+      const conn = await this.client.connect();
+      const result = await conn.query(sql);
+      conn.release();
+
+      return result.rows.map((row) => this.convertProduct(row));
+    } catch (err) {
+      throw new Error(`Could not get products. Error: ${err}`);
+    }
   }
 
-  async getTopProducts(): Promise<ProductWithOrders[]> {
-    const result = await this.client.query<ProductWithOrders>(
-      `SELECT 
-        p.id, p.product_name, p.price, p.category, p.product_desc, p.features,
-        COALESCE(SUM(op.quantity), 0) as total_ordered
-       FROM products p
-       LEFT JOIN order_products op ON p.id = op.product_id
-       GROUP BY p.id
-       ORDER BY total_ordered DESC
-       LIMIT 5`
-    );
-    return result.rows;
+  async show(id: number): Promise<Product> {
+    try {
+      const sql = 'SELECT * FROM products WHERE id = $1';
+      const conn = await this.client.connect();
+      const result = await conn.query(sql, [id]);
+      conn.release();
+
+      if (result.rows.length === 0) {
+        throw new Error(`Product with id ${id} not found`);
+      }
+
+      return this.convertProduct(result.rows[0]);
+    } catch (err) {
+      throw new Error(`Could not find product ${id}. Error: ${err}`);
+    }
   }
 
-  async create(productData: CreateProductDTO): Promise<number> {
-    const result = await this.client.query<{ id: number }>(
-      `INSERT INTO products (product_name, price, category, product_desc, features)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id`,
-      [
-        productData.product_name,
-        productData.price,
-        productData.category,
-        productData.product_desc,
-        productData.features,
-      ]
-    );
-    return result.rows[0].id;
+  async getByCategory(category: ProductCategory): Promise<Product[]> {
+    try {
+      const sql = 'SELECT * FROM products WHERE category = $1';
+      const conn = await this.client.connect();
+      const result = await conn.query(sql, [category]);
+      conn.release();
+
+      return result.rows.map((row) => this.convertProduct(row));
+    } catch (err) {
+      throw new Error(
+        `Could not get products by category ${category}. Error: ${err}`
+      );
+    }
   }
 
-  async getAccessories(
-    productIds: number[]
-  ): Promise<{ [key: number]: ProductAccessory[] }> {
-    const result = await this.client.query<{
-      product_id: number;
-      accessories: ProductAccessory[];
-    }>(
-      `SELECT 
-        product_id,
-        json_agg(
-          json_build_object(
-            'item_name', item_name,
-            'quantity', quantity
-          )
-        ) as accessories
-       FROM product_accessories
-       WHERE product_id = ANY($1::int[])
-       GROUP BY product_id`,
-      [productIds]
-    );
+  async getPopularProducts(limit: number = 5): Promise<Product[]> {
+    try {
+      const sql = `
+                SELECT p.*, COALESCE(SUM(op.quantity), 0) as total_quantity
+                FROM products p
+                LEFT JOIN order_products op ON p.id = op.product_id
+                GROUP BY p.id
+                ORDER BY total_quantity DESC
+                LIMIT $1
+            `;
 
-    return result.rows.reduce(
-      (acc, row) => {
-        acc[row.product_id] = row.accessories;
-        return acc;
-      },
-      {} as { [key: number]: ProductAccessory[] }
-    );
-  }
+      const conn = await this.client.connect();
+      const result = await conn.query(sql, [limit]);
+      conn.release();
 
-  async addAccessory(
-    productId: number,
-    accessory: ProductAccessory
-  ): Promise<void> {
-    await this.client.query(
-      `INSERT INTO product_accessories (product_id, item_name, quantity)
-       VALUES ($1, $2, $3)`,
-      [productId, accessory.item_name, accessory.quantity]
-    );
+      return result.rows.map((row) => this.convertProduct(row));
+    } catch (err) {
+      throw new Error(`Could not get popular products. Error: ${err}`);
+    }
   }
 }

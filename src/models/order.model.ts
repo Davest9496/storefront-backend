@@ -1,138 +1,181 @@
-import { PoolClient } from 'pg';
+import { Pool } from 'pg';
 import {
   Order,
-  OrderProduct,
-  CreateOrderDTO,
   OrderStatus,
-  ProductCategory,
-} from '../types/order.types';
+  CreateOrderDTO,
+  RecentOrder,
+  OrderProduct,
+  CreateOrderProductDTO,
+} from '../types';
 
-export class OrderModel {
-  constructor(private client: PoolClient) {}
+export class OrderStore {
+  constructor(private client: Pool) {}
 
   async getCurrentOrder(userId: number): Promise<Order | null> {
-    const orderResult = await this.client.query<Order>(
-      `SELECT id, user_id, status 
-       FROM orders 
-       WHERE user_id = $1 AND status = 'active'
-       ORDER BY id DESC 
-       LIMIT 1`,
-      [userId]
-    );
+    try {
+      // Explicitly use OrderStatus type for type safety
+      const status: OrderStatus = 'active';
+      const sql = `
+                SELECT * FROM orders 
+                WHERE user_id = $1 AND status = $2
+                ORDER BY id DESC 
+                LIMIT 1
+            `;
+      const conn = await this.client.connect();
+      const result = await conn.query(sql, [userId, status]);
+      conn.release();
 
-    if (!orderResult.rows.length) return null;
+      return result.rows[0] || null;
+    } catch (err) {
+      throw new Error(
+        `Could not get current order for user ${userId}. Error: ${err}`
+      );
+    }
+  }
 
-    const order = orderResult.rows[0];
-    const productsResult = await this.client.query<{
-      id: number;
-      product_id: number;
-      quantity: number;
-      product_name: string;
-      price: number;
-      category: ProductCategory;
-      features: string[];
-      product_desc: string;
-    }>(
-      `SELECT 
-        op.id, op.product_id, op.quantity,
-        p.product_name, p.price, p.category, p.features, p.product_desc
-       FROM order_products op
-       JOIN products p ON op.product_id = p.id
-       WHERE op.order_id = $1`,
-      [order.id]
-    );
+  async create(order: CreateOrderDTO): Promise<Order> {
+    try {
+      // Ensure status is of type OrderStatus
+      const status: OrderStatus = order.status || 'active';
+      const sql = `
+                INSERT INTO orders (user_id, status)
+                VALUES ($1, $2)
+                RETURNING *
+            `;
+      const conn = await this.client.connect();
+      const result = await conn.query(sql, [order.user_id, status]);
+      conn.release();
 
-    const orderProducts: OrderProduct[] = productsResult.rows.map((row) => ({
-      id: row.id,
-      product_id: row.product_id,
-      quantity: row.quantity,
-      product: {
-        id: row.product_id,
-        product_name: row.product_name,
-        price: row.price,
-        category: row.category,
-        features: row.features,
-        product_desc: row.product_desc,
-      },
-    }));
+      return result.rows[0];
+    } catch (err) {
+      throw new Error(`Could not create order. Error: ${err}`);
+    }
+  }
 
-    return {
-      ...order,
-      products: orderProducts,
-    };
+  async addProduct(orderProduct: CreateOrderProductDTO): Promise<OrderProduct> {
+    try {
+      // Define expected status for type checking
+      const activeStatus: OrderStatus = 'active';
+      const orderSql = `
+                SELECT status FROM orders WHERE id = $1
+            `;
+      const conn = await this.client.connect();
+      const orderResult = await conn.query(orderSql, [orderProduct.order_id]);
+
+      if (orderResult.rows.length === 0) {
+        throw new Error(`Order ${orderProduct.order_id} not found`);
+      }
+
+      if (orderResult.rows[0].status !== activeStatus) {
+        throw new Error(`Cannot add products to a completed order`);
+      }
+
+      const sql = `
+                INSERT INTO order_products (order_id, product_id, quantity)
+                VALUES ($1, $2, $3)
+                RETURNING *
+            `;
+
+      const result = await conn.query(sql, [
+        orderProduct.order_id,
+        orderProduct.product_id,
+        orderProduct.quantity,
+      ]);
+      conn.release();
+
+      return result.rows[0];
+    } catch (err) {
+      throw new Error(`Could not add product to order. Error: ${err}`);
+    }
+  }
+
+  async completeOrder(orderId: number, userId: number): Promise<Order> {
+    try {
+      // Use OrderStatus type for both status values
+      const newStatus: OrderStatus = 'complete';
+      const currentStatus: OrderStatus = 'active';
+
+      const sql = `
+                UPDATE orders 
+                SET status = $1
+                WHERE id = $2 AND user_id = $3 AND status = $4
+                RETURNING *
+            `;
+      const conn = await this.client.connect();
+      const result = await conn.query(sql, [
+        newStatus,
+        orderId,
+        userId,
+        currentStatus,
+      ]);
+      conn.release();
+
+      if (result.rows.length === 0) {
+        throw new Error(
+          `Could not complete order ${orderId}. Order might not exist, might not belong to user ${userId}, or might already be complete.`
+        );
+      }
+
+      return result.rows[0];
+    } catch (err) {
+      throw new Error(`Could not complete order ${orderId}. Error: ${err}`);
+    }
   }
 
   async getCompletedOrders(userId: number): Promise<Order[]> {
-    const result = await this.client.query<
-      Order & { products: OrderProduct[] }
-    >(
-      `SELECT 
-        o.id, o.user_id, o.status,
-        COALESCE(json_agg(
-          json_build_object(
-            'id', op.id,
-            'product_id', op.product_id,
-            'quantity', op.quantity,
-            'product', json_build_object(
-              'id', p.id,
-              'product_name', p.product_name,
-              'price', p.price,
-              'category', p.category::text::product_category,
-              'features', p.features,
-              'product_desc', p.product_desc
-            )
-          ) FILTER (WHERE op.id IS NOT NULL)
-        ), '[]') as products
-       FROM orders o
-       LEFT JOIN order_products op ON o.id = op.order_id
-       LEFT JOIN products p ON op.product_id = p.id
-       WHERE o.user_id = $1 AND o.status = 'complete'
-       GROUP BY o.id`,
-      [userId]
-    );
+    try {
+      // Use OrderStatus type for the status parameter
+      const status: OrderStatus = 'complete';
+      const sql = `
+                SELECT * FROM orders
+                WHERE user_id = $1 AND status = $2
+                ORDER BY id DESC
+            `;
+      const conn = await this.client.connect();
+      const result = await conn.query(sql, [userId, status]);
+      conn.release();
 
-    return result.rows;
+      return result.rows;
+    } catch (err) {
+      throw new Error(
+        `Could not get completed orders for user ${userId}. Error: ${err}`
+      );
+    }
   }
 
-  async create(orderData: CreateOrderDTO): Promise<number> {
-    const result = await this.client.query<{ id: number }>(
-      `INSERT INTO orders (user_id, status)
-       VALUES ($1, 'active')
-       RETURNING id`,
-      [orderData.userId]
-    );
+  async getRecentOrders(userId: number): Promise<RecentOrder[]> {
+    try {
+      // Using type casting to ensure PostgreSQL treats the status as the correct enum type
+      const sql = `
+                SELECT 
+                    o.id, 
+                    o.status::order_status as status,
+                    COALESCE(
+                        json_agg(
+                            json_build_object(
+                                'product_id', op.product_id,
+                                'quantity', op.quantity
+                            )
+                        ) FILTER (WHERE op.id IS NOT NULL),
+                        '[]'
+                    ) as products
+                FROM orders o
+                LEFT JOIN order_products op ON o.id = op.order_id
+                WHERE o.user_id = $1
+                GROUP BY o.id, o.status
+                ORDER BY o.id DESC
+                LIMIT 5
+            `;
 
-    return result.rows[0].id;
-  }
+      const conn = await this.client.connect();
+      const result = await conn.query<RecentOrder>(sql, [userId]);
+      conn.release();
 
-  async addProducts(
-    orderId: number,
-    products: Array<{ productId: number; quantity: number }>
-  ): Promise<void> {
-    const values = products
-      .map((p, i) => `($1, $${i * 2 + 2}, $${i * 2 + 3})`)
-      .join(',');
-    const params = [
-      orderId,
-      ...products.flatMap((p) => [p.productId, p.quantity]),
-    ];
-
-    await this.client.query(
-      `INSERT INTO order_products (order_id, product_id, quantity)
-       VALUES ${values}`,
-      params
-    );
-  }
-
-  async updateStatus(orderId: number, status: OrderStatus): Promise<boolean> {
-    const result = await this.client.query<{ id: number }>(
-      `UPDATE orders 
-       SET status = $2
-       WHERE id = $1
-       RETURNING id`,
-      [orderId, status]
-    );
-
-    return result.rows.length > 0;
+      return result.rows;
+    } catch (err) {
+      throw new Error(
+        `Could not get recent orders for user ${userId}. Error: ${err}`
+      );
+    }
   }
 }

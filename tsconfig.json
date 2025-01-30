@@ -4,7 +4,7 @@
     "module": "commonjs",
     "lib": ["es2020"],
     "outDir": "./dist",
-    "rootDirs": ["./src", "./tests"],
+    "rootDirs": ["./src", "src/tests"],
     "strict": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -13,9 +13,16 @@
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "types": ["node", "express", "jsonwebtoken", "jasmine"],
-    "typeRoots": ["./src/types", "./node_modules/@types"],
+    "typeRoots": ["./src/types", "./node_modules/@types", "./"],
     "sourceMap": true
   },
-  "include": ["src/**/*", "tests/**/*", "specs/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "baseUrl": ".",
+    "paths": {
+      "*": [
+        "node_modules/*",
+        "types/*"
+      ]
+    },
+  "include": ["src/**/*", "src/tests/**/*", "global.d.ts", "specs/**/*", "src/tests/helpers/test-helper.ts"],
+  "exclude": ["node_modules", "./dist", "spec"]
 }

@@ -1,9 +1,9 @@
-import { JWTPayload } from '../config/security';
+import { AuthenticatedUser } from '../auth.types';
 
 declare global {
   namespace Express {
     interface Request {
-      user?: JWTPayload;
+      user?: AuthenticatedUser;
     }
   }
 }

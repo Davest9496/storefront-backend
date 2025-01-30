@@ -1,125 +1,146 @@
 import { Request, Response } from 'express';
-import { dbPool } from '../server';
-import { OrderService } from '../services/order.service';
-import { OrderStatus } from '../types/order.types';
+import { Pool } from 'pg';
+import { OrderStore } from '../models/order.model';
+import { CreateOrderDTO, CreateOrderProductDTO } from '../types';
+import client from '../config/database.config';
 
 export class OrderController {
-  static async createOrder(req: Request, res: Response): Promise<void> {
-    const { user_id, products } = req.body;
+  private store: OrderStore;
 
-    // Validate required fields
-    if (!user_id || !Array.isArray(products) || products.length === 0) {
-      res.status(400).json({ error: 'Invalid order data' });
-      return;
-    }
+  constructor(dbClient: Pool = client) {
+    this.store = new OrderStore(dbClient);
+  }
 
-    // Validate products array structure
-    const validProducts = products.every(
-      (p) => p.product_id && typeof p.quantity === 'number' && p.quantity > 0
-    );
-
-    if (!validProducts) {
-      res.status(400).json({ error: 'Invalid product data' });
-      return;
-    }
-
-    const client = await dbPool.connect();
+  async getCurrentOrder(req: Request, res: Response): Promise<void> {
     try {
-      const orderService = new OrderService(client);
-      const order = await orderService.createOrder({
-        userId: user_id,
-        products: products,
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        res.status(400).json({ error: 'Invalid user ID' });
+        return;
+      }
+
+      const order = await this.store.getCurrentOrder(userId);
+      if (!order) {
+        res.status(404).json({ message: 'No active order found' });
+        return;
+      }
+
+      res.json(order);
+    } catch (error) {
+      console.error('Error getting current order:', error);
+      res.status(500).json({
+        error: 'Could not retrieve current order',
+        details: error instanceof Error ? error.message : 'Unknown error',
       });
-      res.status(201).json(order);
+    }
+  }
+
+  async getCompletedOrders(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        res.status(400).json({ error: 'Invalid user ID' });
+        return;
+      }
+
+      const orders = await this.store.getCompletedOrders(userId);
+      res.json(orders);
+    } catch (error) {
+      console.error('Error getting completed orders:', error);
+      res.status(500).json({
+        error: 'Could not retrieve completed orders',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  async create(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user?.id) {
+        res.status(401).json({ error: 'User not authenticated' });
+        return;
+      }
+
+      const orderData: CreateOrderDTO = {
+        user_id: req.user.id,
+        status: 'active',
+      };
+
+      const newOrder = await this.store.create(orderData);
+      res.status(201).json(newOrder);
     } catch (error) {
       console.error('Error creating order:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    } finally {
-      client.release();
+      res.status(500).json({
+        error: 'Could not create order',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   }
 
-  static async getCurrentOrder(req: Request, res: Response): Promise<void> {
-    const userId = parseInt(req.params.userId);
-
-    if (isNaN(userId)) {
-      res.status(400).json({ error: 'Invalid user ID' });
-      return;
-    }
-
-    const client = await dbPool.connect();
+  async addProduct(req: Request, res: Response): Promise<void> {
     try {
-      const orderService = new OrderService(client);
-      const order = await orderService.getCurrentOrder(userId);
-
-      if (!order) {
-        res.status(404).json({ error: 'No active order found' });
+      const orderId = parseInt(req.params.id);
+      if (isNaN(orderId)) {
+        res.status(400).json({ error: 'Invalid order ID' });
         return;
       }
 
-      res.status(200).json(order);
+      const orderProduct: CreateOrderProductDTO = {
+        order_id: orderId,
+        product_id: req.body.product_id,
+        quantity: req.body.quantity,
+      };
+
+      if (!this.validateOrderProduct(orderProduct)) {
+        res.status(400).json({ error: 'Invalid product data' });
+        return;
+      }
+
+      const result = await this.store.addProduct(orderProduct);
+      res.status(201).json(result);
     } catch (error) {
-      console.error('Error fetching current order:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    } finally {
-      client.release();
+      console.error('Error adding product to order:', error);
+      res.status(500).json({
+        error: 'Could not add product to order',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   }
 
-  static async getCompletedOrders(req: Request, res: Response): Promise<void> {
-    const userId = parseInt(req.params.userId);
-
-    if (isNaN(userId)) {
-      res.status(400).json({ error: 'Invalid user ID' });
-      return;
-    }
-
-    const client = await dbPool.connect();
+  async completeOrder(req: Request, res: Response): Promise<void> {
     try {
-      const orderService = new OrderService(client);
-      const orders = await orderService.getCompletedOrders(userId);
-      res.status(200).json(orders);
-    } catch (error) {
-      console.error('Error fetching completed orders:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    } finally {
-      client.release();
-    }
-  }
+      const orderId = parseInt(req.params.id);
+      if (isNaN(orderId)) {
+        res.status(400).json({ error: 'Invalid order ID' });
+        return;
+      }
 
-  static async updateOrderStatus(req: Request, res: Response): Promise<void> {
-    const orderId = parseInt(req.params.id);
-    const { status } = req.body;
+      if (!req.user?.id) {
+        res.status(401).json({ error: 'User not authenticated' });
+        return;
+      }
 
-    if (isNaN(orderId)) {
-      res.status(400).json({ error: 'Invalid order ID' });
-      return;
-    }
-
-    if (!status || !['active', 'complete'].includes(status)) {
-      res.status(400).json({ error: 'Invalid status value' });
-      return;
-    }
-
-    const client = await dbPool.connect();
-    try {
-      const orderService = new OrderService(client);
-      const success = await orderService.updateOrderStatus(
+      const completedOrder = await this.store.completeOrder(
         orderId,
-        status as OrderStatus
+        req.user.id
       );
-
-      if (!success) {
-        res.status(404).json({ error: 'Order not found' });
-        return;
-      }
-
-      res.status(200).json({ message: 'Order status updated successfully' });
+      res.json(completedOrder);
     } catch (error) {
-      console.error('Error updating order status:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    } finally {
-      client.release();
+      console.error('Error completing order:', error);
+      res.status(500).json({
+        error: 'Could not complete order',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
+  }
+
+  private validateOrderProduct(data: CreateOrderProductDTO): boolean {
+    return !!(
+      data.product_id &&
+      typeof data.product_id === 'number' &&
+      data.quantity &&
+      typeof data.quantity === 'number' &&
+      data.quantity > 0
+    );
   }
 }
