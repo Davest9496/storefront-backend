@@ -6,18 +6,31 @@ import {
 } from '../../middleware/auth.middleware';
 import {
   validateUserCreate,
-  validateUserUpdate,
 } from '../../middleware/validation.middleware';
 
 const userRoutes = express.Router();
 const userController = new UserController();
 
+// Debug middleware to log request body
+const debugMiddleware = (
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction
+): void => {
+  console.log('Request Body:', req.body);
+  console.log('Content-Type:', req.headers['content-type']);
+  next();
+};
+
 // Create a new user (signup)
-userRoutes.post('/', validateUserCreate, async (req, res) => {
+userRoutes.post('/', debugMiddleware, validateUserCreate, async (req, res) => {
   try {
+    console.log('Attempting to create user with data:', req.body);
     const result = await userController.create(req.body);
+    console.log('User creation result:', result);
     res.status(201).json(result);
   } catch (error) {
+    console.error('User creation error:', error);
     if (
       error instanceof Error &&
       error.message.includes('Email already exists')
@@ -27,7 +40,6 @@ userRoutes.post('/', validateUserCreate, async (req, res) => {
         details: 'This email address is already registered',
       });
     } else {
-      console.error('User creation error:', error);
       res.status(400).json({
         error: 'Could not create user',
         details: error instanceof Error ? error.message : 'Unknown error',
@@ -37,7 +49,7 @@ userRoutes.post('/', validateUserCreate, async (req, res) => {
 });
 
 // Get all users [token required]
-userRoutes.get('/', verifyAuthToken, async (_req, res) => {
+userRoutes.get('/', debugMiddleware, verifyAuthToken, async (_req, res) => {
   try {
     const users = await userController.index();
     res.json(users);
@@ -50,6 +62,7 @@ userRoutes.get('/', verifyAuthToken, async (_req, res) => {
 // Get specific user [token required]
 userRoutes.get(
   '/:id',
+  debugMiddleware,
   verifyAuthToken,
   verifyUserAuthorization,
   async (req, res) => {
@@ -57,80 +70,12 @@ userRoutes.get(
       const user = await userController.show(parseInt(req.params.id));
       res.json(user);
     } catch (error) {
-      if (error instanceof Error && error.message === 'User not found') {
+      console.error('Error retrieving user:', error);
+      if (error instanceof Error && error.message.includes('not found')) {
         res.status(404).json({ error: 'User not found' });
       } else {
-        console.error('Error retrieving user:', error);
         res.status(400).json({ error: 'Could not retrieve user' });
       }
-    }
-  }
-);
-
-// Update user [token required]
-userRoutes.put(
-  '/:id',
-  verifyAuthToken,
-  verifyUserAuthorization,
-  validateUserUpdate,
-  async (req, res) => {
-    try {
-      const user = await userController.update(
-        parseInt(req.params.id),
-        req.body
-      );
-      res.json(user);
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.includes('Email already exists')
-      ) {
-        // Send appropriate status code and error message for email conflicts
-        res.status(409).json({
-          error: 'Email already exists',
-          details: 'This email address is already registered to another user',
-        });
-      } else {
-        console.error('Error updating user:', error);
-        res.status(400).json({
-          error: 'Could not update user',
-          details: error instanceof Error ? error.message : 'Unknown error',
-        });
-      }
-    }
-  }
-);
-
-// Delete user [token required]
-userRoutes.delete(
-  '/:id',
-  verifyAuthToken,
-  verifyUserAuthorization,
-  async (req, res) => {
-    try {
-      await userController.delete(parseInt(req.params.id));
-      res.status(204).send();
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      res.status(400).json({ error: 'Could not delete user' });
-    }
-  }
-);
-
-// Get user's recent orders [token required]
-userRoutes.get(
-  '/:id/orders',
-  verifyAuthToken,
-  verifyUserAuthorization,
-  async (req, res) => {
-    try {
-      const orders = await userController.getRecentOrders(
-        parseInt(req.params.id)
-      );
-      res.json(orders);
-    } catch (error) {
-      console.error('Error retrieving orders:', error);
-      res.status(400).json({ error: 'Could not retrieve orders' });
     }
   }
 );

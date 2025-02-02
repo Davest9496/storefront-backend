@@ -1,31 +1,24 @@
-import dotenv from 'dotenv';
-import { join } from 'path';
 import { TestDatabase } from './setup/database';
-import './helpers/reporter'; // Import the reporter configuration
 
-// First, we load our test environment variables
-dotenv.config({ path: join(__dirname, '../../.env.test') });
-
-// Before running any tests, we need to prepare our test environment
+// Global setup
 beforeAll(async () => {
   try {
-    // Reset the database to ensure we start with a clean state
+    // Initialize test database and run migrations
+    await TestDatabase.initialize();
     await TestDatabase.reset();
-    console.log('Test database prepared successfully');
+    console.log('Test environment setup completed');
   } catch (error) {
-    console.error('Error setting up test database:', error);
+    console.error('Test environment setup failed:', error);
     throw error;
   }
 });
 
-// After all tests complete, we need to clean up our resources
+// Global cleanup
 afterAll(async () => {
   try {
-    // Close the database connection to prevent connection leaks
-    await TestDatabase.close();
-    console.log('Database connection closed');
+    await TestDatabase.cleanup();
+    console.log('Test environment cleanup completed');
   } catch (error) {
-    console.error('Error closing database connection:', error);
-    throw error;
+    console.error('Test environment cleanup failed:', error);
   }
 });
