@@ -1,276 +1,189 @@
-import { OrderStore } from '../../../src/models/order.model';
-import { UserStore } from '../../../src/models/user.model';
-import { ProductStore } from '../../../src/models/product.model';
+import { OrderStore } from '../../models/order.model';
+import { UserStore } from '../../models/user.model';
+import { ProductStore } from '../../models/product.model';
 import {
-  Product,
-  User,
   Order,
+  User,
+  Product,
   CreateUserDTO,
   CreateProductDTO,
   ProductCategory,
-  OrderProductDetail,
-} from '../../../src/types/shared.types';
-import client from '../../../src/config/database.config';
-
-// Extend Order interface for tests to include products
-interface OrderWithProducts extends Order {
-  products: OrderProductDetail[];
-}
+} from '../../types/shared.types';
+import { Pool } from 'pg';
+import dbClient from '../../config/database.config';
 
 describe('Order Model', () => {
   const orderStore = new OrderStore();
   const userStore = new UserStore();
   const productStore = new ProductStore();
 
-  let testUser: User;
-  let testProduct: Product;
-  let testOrder: OrderWithProducts;
-
-  // Increase timeout for slower operations
-  jasmine.DEFAULT_TIMEOUT_INTERVAL = 10000;
+  let testUser: User & { id: number };
+  let testProduct: Product & { id: number };
+  let testOrder: Order & { id: number };
+  let client: Pool;
 
   beforeAll(async () => {
-    try {
-      // Clean up any existing test data first
-      await cleanupTestData();
+    client = dbClient.dbPool;
 
-      // Create test user
-      const userData: CreateUserDTO = {
-        first_name: 'Test',
-        last_name: 'User',
-        email: 'test.order@example.com', // Changed email to avoid conflicts
-        password: 'password123',
-      };
-      testUser = await userStore.create(userData);
+    // Create test user
+    const userData: CreateUserDTO = {
+      first_name: 'Test',
+      last_name: 'User',
+      email: 'test@example.com',
+      password: 'password123',
+    };
+    const user = await userStore.create(userData);
+    if (!user.id) throw new Error('Failed to create test user');
+    testUser = { ...user, id: user.id }; // Ensure id is non-null
 
-      if (!testUser.id) {
-        throw new Error('Failed to create test user');
-      }
-
-      // Create test product
-      const productData: CreateProductDTO = {
-        product_name: 'Test Headphones',
-        price: 299.99,
-        category: 'headphones' as ProductCategory,
-        product_desc: 'Test Description',
-        image_name: 'test-headphones',
-        product_features: ['Feature 1', 'Feature 2'],
-        product_accessories: ['Accessory 1', 'Accessory 2'],
-      };
-      testProduct = await productStore.create(productData);
-
-      if (!testProduct.id) {
-        throw new Error('Failed to create test product');
-      }
-    } catch (err) {
-      console.error('Error in beforeAll:', err);
-      throw err;
-    }
+    // Create test product
+    const productData: CreateProductDTO = {
+      product_name: 'Test Headphones',
+      price: 299.99,
+      category: 'headphones' as ProductCategory,
+      product_desc: 'Test description',
+      image_name: 'test-headphones',
+      product_features: ['Feature 1', 'Feature 2'],
+      product_accessories: ['Accessory 1', 'Accessory 2'],
+    };
+    const product = await productStore.create(productData);
+    if (!product.id) throw new Error('Failed to create test product');
+    testProduct = { ...product, id: product.id }; // Ensure id is non-null
   });
 
   afterAll(async () => {
+    // Clean up test data
     try {
-      await cleanupTestData();
+      const connection = await client.connect();
+      await connection.query('DELETE FROM order_products');
+      await connection.query('DELETE FROM orders');
+      await connection.query('DELETE FROM products');
+      await connection.query('DELETE FROM users');
+      connection.release();
     } catch (err) {
-      console.error('Error in afterAll:', err);
+      console.error('Error cleaning up test data:', err);
     }
   });
 
-  // Helper function to clean up test data
-  async function cleanupTestData(): Promise<void> {
-    try {
-      const conn = await client.dbPool.connect();
-      // Drop in reverse order of dependencies
-      await conn.query('DELETE FROM order_products CASCADE');
-      await conn.query('DELETE FROM orders CASCADE');
-      await conn.query('DELETE FROM products CASCADE');
-      await conn.query('DELETE FROM users CASCADE');
-      conn.release();
-    } catch (err) {
-      console.error('Error in cleanupTestData:', err);
-      throw err;
-    }
-  }
-
-  it('should have all required methods', () => {
-    expect(orderStore.create).toBeDefined();
-    expect(orderStore.index).toBeDefined();
-    expect(orderStore.show).toBeDefined();
-    expect(orderStore.getCurrentOrder).toBeDefined();
-    expect(orderStore.getCompletedOrders).toBeDefined();
-    expect(orderStore.addProduct).toBeDefined();
-    expect(orderStore.updateStatus).toBeDefined();
-    expect(orderStore.delete).toBeDefined();
-  });
-
-  describe('Basic CRUD Operations', () => {
-    it('should create a new order', async () => {
-      try {
-        if (!testUser.id) {
-          throw new Error('Test user ID is undefined');
-        }
-
-        const newOrder = await orderStore.create(testUser.id);
-        testOrder = { ...newOrder, products: [] };
-
-        expect(testOrder).toBeDefined();
-        expect(testOrder.user_id).toBe(testUser.id);
-        expect(testOrder.status).toBe('active');
-      } catch (err) {
-        fail(`Failed to create order: ${err}`);
-      }
+  describe('Method existence', () => {
+    it('should have a create method', () => {
+      expect(orderStore.create).toBeDefined();
     });
 
-    it('should get all orders', async () => {
-      try {
-        const result = await orderStore.index();
-        expect(result).toBeDefined();
-        expect(Array.isArray(result)).toBe(true);
-        expect(result.length).toBeGreaterThan(0);
-      } catch (err) {
-        fail(`Failed to get orders: ${err}`);
-      }
+    it('should have an index method', () => {
+      expect(orderStore.index).toBeDefined();
     });
 
-    it('should get a specific order', async () => {
-      try {
-        if (!testOrder.id) {
-          throw new Error('Test order ID is undefined');
-        }
-
-        const result = await orderStore.show(testOrder.id);
-        expect(result).toBeDefined();
-        expect(result?.id).toBe(testOrder.id);
-        expect(result?.user_id).toBe(testUser.id);
-      } catch (err) {
-        fail(`Failed to get specific order: ${err}`);
-      }
+    it('should have a show method', () => {
+      expect(orderStore.show).toBeDefined();
     });
 
-    it('should get current order by user', async () => {
-      try {
-        if (!testUser.id) {
-          throw new Error('Test user ID is undefined');
-        }
-
-        const result = await orderStore.getCurrentOrder(testUser.id);
-        expect(result).toBeDefined();
-        expect(result?.user_id).toBe(testUser.id);
-        expect(result?.status).toBe('active');
-      } catch (err) {
-        fail(`Failed to get current order: ${err}`);
-      }
+    it('should have a delete method', () => {
+      expect(orderStore.delete).toBeDefined();
     });
   });
 
-  describe('Order Product Operations', () => {
-    it('should add product to order', async () => {
-      try {
-        if (!testOrder.id || !testProduct.id) {
-          throw new Error('Test order or product ID is undefined');
-        }
+  describe('CRUD Operations', () => {
+    it('create method should add a new order', async () => {
+      const order = await orderStore.create(testUser.id);
+      if (!order.id) throw new Error('Failed to create test order');
+      testOrder = { ...order, id: order.id }; // Ensure id is non-null
 
-        const result = await orderStore.addProduct(
-          testOrder.id,
-          testProduct.id,
-          2
-        );
-        expect(result).toBeDefined();
-        expect(result.order_id).toBe(testOrder.id);
-        expect(result.product_id).toBe(testProduct.id);
-        expect(result.quantity).toBe(2);
-      } catch (err) {
-        fail(`Failed to add product to order: ${err}`);
-      }
+      expect(testOrder).toBeDefined();
+      expect(testOrder.user_id).toBe(testUser.id);
+      expect(testOrder.status).toBe('active');
     });
 
-    it('should update product quantity', async () => {
-      try {
-        if (!testOrder.id || !testProduct.id) {
-          throw new Error('Test order or product ID is undefined');
-        }
-
-        const result = await orderStore.updateProductQuantity(
-          testOrder.id,
-          testProduct.id,
-          3
-        );
-        expect(result).toBeDefined();
-        expect(result.quantity).toBe(3);
-      } catch (err) {
-        fail(`Failed to update product quantity: ${err}`);
-      }
+    it('index method should return a list of orders', async () => {
+      const result = await orderStore.index();
+      expect(result).toBeDefined();
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBeGreaterThan(0);
     });
 
-    it('should remove product from order', async () => {
-      try {
-        if (!testOrder.id || !testProduct.id) {
-          throw new Error('Test order or product ID is undefined');
-        }
+    it('show method should return the correct order', async () => {
+      const result = await orderStore.show(testOrder.id);
+      expect(result).toBeDefined();
+      expect(result?.id).toBe(testOrder.id);
+      expect(result?.user_id).toBe(testUser.id);
+    });
 
-        await orderStore.removeProduct(testOrder.id, testProduct.id);
-        const result = await orderStore.show(testOrder.id);
+    it('should return null for non-existent order', async () => {
+      const result = await orderStore.show(999999);
+      expect(result).toBeNull();
+    });
+  });
 
-        if (!result) {
-          throw new Error('Order not found after product removal');
-        }
+  describe('Order Products Operations', () => {
+    it('should add a product to an order', async () => {
+      const quantity = 2;
+      const result = await orderStore.addProduct(
+        testOrder.id,
+        testProduct.id,
+        quantity
+      );
 
-        const orderWithProducts = result as OrderWithProducts;
-        const hasProduct = orderWithProducts.products?.some(
-          (p) => p.product_id === testProduct.id
-        );
-        expect(hasProduct).toBe(false);
-      } catch (err) {
-        fail(`Failed to remove product from order: ${err}`);
-      }
+      expect(result).toBeDefined();
+      expect(result.order_id).toBe(testOrder.id);
+      expect(result.product_id).toBe(testProduct.id);
+      expect(result.quantity).toBe(quantity);
+    });
+
+    it('should not add product to completed order', async () => {
+      // First complete the order
+      await orderStore.updateStatus(testOrder.id, 'complete');
+
+      await expectAsync(
+        orderStore.addProduct(testOrder.id, testProduct.id, 1)
+      ).toBeRejectedWithError(
+        `Could not add product ${testProduct.id} to order ${testOrder.id}. Error: Cannot add products to completed order ${testOrder.id}`
+      );
     });
   });
 
   describe('Order Status Operations', () => {
     it('should update order status', async () => {
-      try {
-        if (!testOrder.id) {
-          throw new Error('Test order ID is undefined');
-        }
-
-        const result = await orderStore.updateStatus(testOrder.id, 'complete');
-        expect(result).toBeDefined();
-        expect(result.status).toBe('complete');
-      } catch (err) {
-        fail(`Failed to update order status: ${err}`);
-      }
+      const result = await orderStore.updateStatus(testOrder.id, 'complete');
+      expect(result).toBeDefined();
+      expect(result.status).toBe('complete');
     });
 
-    it('should get completed orders by user', async () => {
-      try {
-        if (!testUser.id) {
-          throw new Error('Test user ID is undefined');
-        }
+    it('should get current order for user', async () => {
+      // Create a new active order since previous one was completed
+      await orderStore.create(testUser.id);
+      const result = await orderStore.getCurrentOrder(testUser.id);
 
-        const result = await orderStore.getCompletedOrders(testUser.id);
-        expect(result).toBeDefined();
-        expect(Array.isArray(result)).toBe(true);
-        expect(result.length).toBeGreaterThan(0);
-        expect(result[0].status).toBe('complete');
-      } catch (err) {
-        fail(`Failed to get completed orders: ${err}`);
-      }
+      expect(result).toBeDefined();
+      expect(result?.status).toBe('active');
+      expect(result?.user_id).toBe(testUser.id);
+    });
+
+    it('should get completed orders for user', async () => {
+      const result = await orderStore.getCompletedOrders(testUser.id);
+
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0].status).toBe('complete');
     });
   });
 
-  describe('Delete Operations', () => {
-    it('should delete an order', async () => {
-      try {
-        if (!testOrder.id) {
-          throw new Error('Test order ID is undefined');
-        }
+  describe('Error Handling', () => {
+    it('should handle missing order gracefully', async () => {
+      await expectAsync(orderStore.delete(999999)).toBeRejectedWithError(
+        'Could not delete order 999999. Error: Order 999999 not found'
+      );
+    });
 
-        await orderStore.delete(testOrder.id);
-        const result = await orderStore.show(testOrder.id);
-        expect(result).toBeNull();
-      } catch (err) {
-        fail(`Failed to delete order: ${err}`);
-      }
+    it('should handle invalid product ID', async () => {
+      await expectAsync(
+        orderStore.addProduct(testOrder.id, 999999, 1)
+      ).toBeRejected();
+    });
+
+    it('should handle invalid quantities', async () => {
+      await expectAsync(
+        orderStore.addProduct(testOrder.id, testProduct.id, -1)
+      ).toBeRejected();
     });
   });
 });

@@ -1,4 +1,4 @@
-import express, { Application } from 'express';
+import express, { Application, Request, Response } from 'express';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import router from './routes/router';
@@ -7,13 +7,13 @@ import { dbPool } from './config/database.config';
 dotenv.config();
 
 const app: Application = express();
-const port = process.env.PORT || 3000;
+const port: number = parseInt(process.env.PORT || '3000', 10);
 
 // Middleware
 app.use(bodyParser.json());
 
 // Health check endpoint
-app.get('/health', async (_req, res) => {
+app.get('/health', async (_req: Request, res: Response): Promise<void> => {
   try {
     const client = await dbPool.connect();
     try {
@@ -33,11 +33,7 @@ app.use('/api', router);
 
 // Error handling middleware
 app.use(
-  (
-    err: Error,
-    _req: express.Request,
-    res: express.Response,
-  ) => {
+  (err: Error, _req: Request, res: Response): void => {
     console.error('Error:', err);
     res.status(500).json({
       error: 'Internal Server Error',
