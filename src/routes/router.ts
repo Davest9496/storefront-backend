@@ -1,9 +1,11 @@
 import { Router } from 'express';
-import userRoute from './api/userRoutes';
+import userRoutes from './api/userRoutes';
+import productRoutes from './api/product.route';
 
 const router = Router();
 
-router.use('/users', userRoute);
+router.use('/users', userRoutes);
+router.use('/products', productRoutes)
 
 
 
