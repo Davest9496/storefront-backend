@@ -1,94 +1,106 @@
-import { PoolClient } from 'pg';
-import {
-  CreateUserDTO,
-  UpdateUserDTO,
-  UserProfile,
-  User,
-} from '../types/user.types';
+import { QueryResult } from 'pg';
+import { query } from '../config/database.config';
+import bcrypt from 'bcrypt';
+import { User, CreateUserDTO } from '../types/shared.types';
+import { passwordUtils } from '../middleware/auth.middleware';
 
-export class UserModel {
-  constructor(private client: PoolClient) {}
-
-  async findAll(): Promise<User[]> {
-    const result = await this.client.query<User>(
-      'SELECT id, first_name, last_name FROM users ORDER BY id ASC'
-    );
-    return result.rows;
+export class UserStore {
+  async index(): Promise<User[]> {
+    try {
+      const sql = 'SELECT id, first_name, last_name, email FROM users';
+      const result: QueryResult<User> = await query<User>(sql);
+      return result.rows;
+    } catch (err) {
+      throw new Error(
+        `Could not get users. Error: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
   }
 
-  async findById(id: number): Promise<UserProfile | null> {
-    const result = await this.client.query<UserProfile>(
-      'SELECT id, first_name, last_name, email, password_digest FROM users WHERE id = $1',
-      [id]
-    );
-    return result.rows[0] || null;
+  async show(id: number): Promise<User | null> {
+    try {
+      const sql =
+        'SELECT id, first_name, last_name, email FROM users WHERE id = $1';
+      const result: QueryResult<User> = await query<User>(sql, [id]);
+
+      return result.rows.length ? result.rows[0] : null;
+    } catch (err) {
+      throw new Error(
+        `Error querying user ${id}. Error: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
   }
 
-  async findByEmail(email: string): Promise<UserProfile | null> {
-    const result = await this.client.query<UserProfile>(
-      'SELECT id, first_name, last_name, email, password_digest FROM users WHERE LOWER(email) = LOWER($1)',
-      [email]
-    );
-    return result.rows[0] || null;
+  async create(userData: CreateUserDTO): Promise<User> {
+    try {
+      // Check if email already exists
+      const emailCheck: QueryResult<Pick<User, 'id'>> = await query<
+        Pick<User, 'id'>
+      >('SELECT id FROM users WHERE email = $1', [userData.email]);
+
+      if (emailCheck.rows.length) {
+        throw new Error('Email already exists');
+      }
+
+      // Hash password with pepper and salt
+      const pepper = passwordUtils.getPepper();
+      const saltRounds = passwordUtils.getSaltRounds();
+
+      // Combine password with pepper before hashing
+      const passwordWithPepper = userData.password + pepper;
+      const hash = await bcrypt.hash(passwordWithPepper, saltRounds);
+
+      const sql = `
+        INSERT INTO users (first_name, last_name, email, password_digest)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id, first_name, last_name, email, password_digest`;
+
+      const result: QueryResult<User> = await query<User>(sql, [
+        userData.first_name,
+        userData.last_name,
+        userData.email,
+        hash,
+      ]);
+
+      return result.rows[0];
+    } catch (err) {
+      throw new Error(
+        `Could not create user. Error: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
   }
 
-  async create(
-    userData: CreateUserDTO,
-    hashedPassword: string
-  ): Promise<UserProfile> {
-    const result = await this.client.query<UserProfile>(
-      `INSERT INTO users (first_name, last_name, email, password_digest) 
-       VALUES ($1, $2, $3, $4) 
-       RETURNING id, first_name, last_name, email, password_digest`,
-      [
-        userData.first_name.trim(),
-        userData.last_name.trim(),
-        userData.email.trim(),
-        hashedPassword,
-      ]
-    );
-    return result.rows[0];
-  }
+  async authenticate(email: string, password: string): Promise<User | null> {
+    try {
+      const sql = 'SELECT * FROM users WHERE email = $1';
+      const result: QueryResult<User> = await query<User>(sql, [email]);
 
-  async update(id: number, data: UpdateUserDTO): Promise<UserProfile | null> {
-    const setClause = Object.entries(data)
-      .filter(([, value]) => value !== undefined)
-      .map(([key], index) => `${key} = $${index + 2}`)
-      .join(', ');
+      if (result.rows.length) {
+        const user = result.rows[0];
+        const pepper = passwordUtils.getPepper();
+        const passwordWithPepper = password + pepper;
 
-    const values = Object.values(data).filter((value) => value !== undefined);
-    if (!values.length) return this.findById(id);
+        const isValid = await bcrypt.compare(
+          passwordWithPepper,
+          user.password_digest
+        );
 
-    const result = await this.client.query<UserProfile>(
-      `UPDATE users 
-       SET ${setClause}
-       WHERE id = $1
-       RETURNING id, first_name, last_name, email, password_digest`,
-      [id, ...values]
-    );
-    return result.rows[0] || null;
-  }
+        if (isValid) {
+          return {
+            id: user.id,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            email: user.email,
+            password_digest: user.password_digest,
+          };
+        }
+      }
 
-  async updatePassword(id: number, hashedPassword: string): Promise<boolean> {
-    const result = await this.client.query(
-      'UPDATE users SET password_digest = $1 WHERE id = $2',
-      [hashedPassword, id]
-    );
-    return (result.rowCount ?? 0) > 0;
-  }
-
-  async delete(id: number): Promise<boolean> {
-    const result = await this.client.query('DELETE FROM users WHERE id = $1', [
-      id,
-    ]);
-    return (result.rowCount ?? 0) > 0;
-  }
-
-  async checkEmailExists(email: string): Promise<boolean> {
-    const result = await this.client.query(
-      'SELECT id FROM users WHERE LOWER(email) = LOWER($1)',
-      [email]
-    );
-    return result.rows.length > 0;
+      return null;
+    } catch (err) {
+      throw new Error(
+        `Authentication failed. Error: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
   }
 }

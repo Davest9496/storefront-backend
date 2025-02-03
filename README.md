@@ -104,16 +104,8 @@ GRANT ALL PRIVILEGES ON DATABASE storefront_test TO postgres;
 ```
 
 2. Run migrations:
-```bash
-yarn migrate:up        # For development database
-yarn migrate:up:test   # For test database
-```
-
 ### Database Migration Scripts
 ```bash
-# Create a new migration
-yarn migrate:create [migration_name]
-
 # Run migrations
 yarn migrate:up         # Development database
 yarn migrate:up:test    # Test database

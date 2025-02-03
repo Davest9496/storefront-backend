@@ -2,15 +2,15 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config({
+  files: ['src/**/*.ts'], // Include all TypeScript files
   ignores: ['dist/**', 'node_modules/**'],
-  files: ['**/*.{ts,tsx}'],
   languageOptions: {
     globals: {
       ...globals.node,
     },
     parser: tseslint.parser,
     parserOptions: {
-      project: './tsconfig.json',
+      project: ['./tsconfig.json', './tsconfig.test.json'], // Include both configs
     },
   },
   plugins: {
