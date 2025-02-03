@@ -1,13 +1,15 @@
 services:
   postgres:
     image: postgres:latest
+    container_name: storefront_postgres
     ports:
-      - '5432:5432'
-    env_file:
-      - .env
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
-      - postgres:/var/lib/postgresql/data
-      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+      - ./init-db:/docker-entrypoint-initdb.d
+      - postgres_data:/var/lib/postgresql/data
 
 volumes:
-  postgres:
+  postgres_data:

@@ -1,214 +1,233 @@
-// import { ProductStore } from '../../models/product.model';
-// import { testDb } from '../helpers/database';
-// import { TestHelper } from '../helpers/test-helper';
-// import { Product, CreateProductDTO, ProductCategory } from '../types';
+import { ProductStore } from '../../models/product.model';
+import {
+  Product,
+  ProductCategory,
+  CreateProductDTO,
+} from '../../types/shared.types';
+import { NotFoundError } from '../../utils/error.utils';
+import client from '../../config/database.config';
 
-// describe('Product Model Tests', () => {
-//   // Initialize store and test helper
-//   const store = new ProductStore(testDb);
-//   const testHelper = TestHelper.getInstance(testDb);
+describe('Product Model', () => {
+  const store = new ProductStore();
 
-//   // Define test data with explicit types
-//   let testProduct: CreateProductDTO;
-//   let createdProduct: Product & { id: number };
+  // Test product data matching CreateProductDTO
+  const testProduct: CreateProductDTO = {
+    product_name: 'Test Headphones',
+    price: 199.99,
+    category: 'headphones' as ProductCategory,
+    product_desc: 'Test description',
+    image_name: 'test-headphones',
+    product_features: ['Feature 1', 'Feature 2'],
+    product_accessories: ['Accessory 1', 'Accessory 2'],
+  };
 
-//   // Reset database and test data before each test
-//   beforeEach(async () => {
-//     await testHelper.cleanTables();
+  let createdProduct: Product;
 
-//     // Initialize test product with all required fields
-//     testProduct = {
-//       product_name: 'XX99 Mark II Headphones',
-//       price: 299.99,
-//       category: 'headphones' as ProductCategory,
-//       product_desc:
-//         'The new XX99 Mark II headphones is the pinnacle of pristine audio.',
-//       image_name: 'xx99-mark-2-headphones.jpg',
-//       product_features: [
-//         'Features a genuine leather head strap',
-//         'Premium earcups for superior comfort',
-//       ],
-//       product_accessories: [
-//         'Headphone Unit',
-//         'Replacement Earcups',
-//         'User Manual',
-//       ],
-//     };
-//   });
+  beforeAll(async () => {
+    try {
+      await client.query('DELETE FROM order_products');
+      await client.query('DELETE FROM orders');
+      await client.query('DELETE FROM products');
+    } catch (err) {
+      throw new Error(`Error cleaning database: ${err}`);
+    }
+  });
 
-//   // Verify the presence of required store methods
-//   describe('Store Interface', () => {
-//     type StoreMethod = keyof ProductStore;
-//     const requiredMethods: StoreMethod[] = [
-//       'index',
-//       'show',
-//       'create',
-//       'getPopularProducts',
-//       'getByCategory',
-//     ];
+  afterAll(async () => {
+    try {
+      await client.query('DELETE FROM order_products');
+      await client.query('DELETE FROM orders');
+      await client.query('DELETE FROM products');
+    } catch (err) {
+      throw new Error(`Error cleaning database: ${err}`);
+    }
+  });
 
-//     requiredMethods.forEach((method) => {
-//       it(`should have ${method} method defined`, () => {
-//         expect(store[method]).toBeDefined();
-//         expect(typeof store[method]).toBe('function');
-//       });
-//     });
-//   });
+  describe('Method definitions', () => {
+    it('should have an index method', () => {
+      expect(store.index).toBeDefined();
+    });
 
-//   describe('Product Creation', () => {
-//     it('should create a new product with all fields properly typed', async () => {
-//       const result = await store.create(testProduct);
-//       createdProduct = result as Product & { id: number };
+    it('should have a show method', () => {
+      expect(store.show).toBeDefined();
+    });
 
-//       // Verify all fields maintain their proper types
-//       expect(typeof createdProduct.id).toBe('number');
-//       expect(typeof createdProduct.product_name).toBe('string');
-//       expect(typeof createdProduct.price).toBe('number');
-//       expect(createdProduct.category).toBe('headphones');
-//       expect(Array.isArray(createdProduct.product_features)).toBe(true);
-//       expect(Array.isArray(createdProduct.product_accessories)).toBe(true);
+    it('should have a create method', () => {
+      expect(store.create).toBeDefined();
+    });
 
-//       // Verify the data matches input
-//       expect(createdProduct).toEqual({
-//         ...testProduct,
-//         id: createdProduct.id,
-//       });
-//     });
+    it('should have an update method', () => {
+      expect(store.update).toBeDefined();
+    });
 
-//     it('should handle decimal prices with numeric precision', async () => {
-//       const precisePrice = 99.99;
-//       const productWithPrecisePrice: CreateProductDTO = {
-//         ...testProduct,
-//         price: precisePrice,
-//       };
+    it('should have a delete method', () => {
+      expect(store.delete).toBeDefined();
+    });
 
-//       const result = await store.create(productWithPrecisePrice);
+    it('should have a getByCategory method', () => {
+      expect(store.getByCategory).toBeDefined();
+    });
 
-//       expect(result.price).toBe(precisePrice);
-//       expect(result.price).toBeCloseTo(precisePrice, 2);
-//     });
+    it('should have a getPopular method', () => {
+      expect(store.getPopular).toBeDefined();
+    });
+  });
 
-//     it('should create product with only required fields', async () => {
-//       const minimalProduct: CreateProductDTO = {
-//         product_name: 'Basic Headphones',
-//         price: 99.99,
-//         category: 'headphones',
-//         image_name: 'basic-headphones.jpg',
-//         product_features: [],
-//         product_accessories: [],
-//       };
+  describe('CRUD Operations', () => {
+    it('create method should add a product', async () => {
+      createdProduct = await store.create(testProduct);
 
-//       const result = await store.create(minimalProduct);
-//       expect(result.id).toBeDefined();
-//       expect(result.product_name).toBe(minimalProduct.product_name);
-//       expect(result.product_features).toEqual([]);
-//       expect(result.product_accessories).toEqual([]);
-//     });
+      expect(createdProduct).toBeDefined();
+      expect(createdProduct.id).toBeDefined();
+      expect(createdProduct.product_name).toBe(testProduct.product_name);
+      expect(parseFloat(createdProduct.price.toString())).toBe(
+        testProduct.price
+      );
+      expect(createdProduct.category).toBe(testProduct.category);
+    });
 
-//     it('should reject invalid price values', async () => {
-//       const invalidPrice = -10.0;
-//       const invalidProduct: CreateProductDTO = {
-//         ...testProduct,
-//         price: invalidPrice,
-//       };
+    it('index method should return a list of products', async () => {
+      const result = await store.index();
 
-//       await expectAsync(store.create(invalidProduct)).toBeRejectedWithError(
-//         /Could not add new product/
-//       );
-//     });
-//   });
+      expect(result).toBeDefined();
+      expect(result.length).toBe(1);
+      if (result[0].product_name) {
+        expect(result[0].product_name).toBe(testProduct.product_name);
+      }
+    });
 
-//   describe('Product Retrieval', () => {
-//     beforeEach(async () => {
-//       const result = await store.create(testProduct);
-//       createdProduct = result as Product & { id: number };
-//     });
+    it('show method should return the correct product', async () => {
+      const result = await store.show(createdProduct.id as number);
 
-//     describe('index method', () => {
-//       it('should return typed array of products', async () => {
-//         const products = await store.index();
+      expect(result).toBeDefined();
+      expect(result.id).toBe(createdProduct.id);
+      if (result.product_name) {
+        expect(result.product_name).toBe(testProduct.product_name);
+      }
+    });
 
-//         expect(Array.isArray(products)).toBe(true);
-//         expect(products.length).toBeGreaterThan(0);
-//         expect(products[0]).toEqual(createdProduct);
-//       });
+    it('show method should throw NotFoundError for non-existent product', async () => {
+      try {
+        await store.show(999999);
+        fail('Expected NotFoundError to be thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(NotFoundError);
+      }
+    });
 
-//       it('should return empty array for no products', async () => {
-//         await testHelper.cleanTables();
-//         const products = await store.index();
-//         expect(products).toEqual([]);
-//       });
-//     });
+    it('update method should modify product', async () => {
+      const updatedName = 'Updated Headphones';
+      const updatedPrice = 299.99;
 
-//     describe('show method', () => {
-//       it('should return product with correct types by id', async () => {
-//         const product = await store.show(createdProduct.id);
+      const updates: Required<
+        Pick<CreateProductDTO, 'product_name' | 'price'>
+      > = {
+        product_name: updatedName,
+        price: updatedPrice,
+      };
 
-//         expect(product).toEqual(createdProduct);
-//         expect(typeof product.id).toBe('number');
-//         expect(typeof product.price).toBe('number');
-//         expect(product.category).toBe('headphones');
-//       });
+      const result = await store.update(createdProduct.id as number, updates);
 
-//       it('should handle non-existent product id', async () => {
-//         const nonExistentId = 999;
-//         await expectAsync(store.show(nonExistentId)).toBeRejectedWithError(
-//           new RegExp(`Product with id ${nonExistentId} not found`)
-//         );
-//       });
-//     });
-//   });
+      expect(result).toBeDefined();
+      if (result.product_name && result.price) {
+        expect(result.product_name).toBe(updatedName);
+        expect(parseFloat(result.price.toString())).toBe(updatedPrice);
+      }
+      // Check that other fields remain unchanged
+      expect(result.category).toBe(testProduct.category);
+    });
 
-//   describe('Category Operations', () => {
-//     beforeEach(async () => {
-//       // Create products in different categories
-//       await Promise.all([
-//         store.create(testProduct),
-//         store.create({
-//           ...testProduct,
-//           product_name: 'Test Speakers',
-//           category: 'speakers' as ProductCategory,
-//         }),
-//       ]);
-//     });
+    it('delete method should remove product', async () => {
+      await store.delete(createdProduct.id as number);
 
-//     it('should return products filtered by category with proper typing', async () => {
-//       const category: ProductCategory = 'headphones';
-//       const products = await store.getByCategory(category);
+      try {
+        await store.show(createdProduct.id as number);
+        fail('Expected NotFoundError to be thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(NotFoundError);
+      }
+    });
+  });
 
-//       expect(products.length).toBe(1);
-//       products.forEach((product) => {
-//         expect(product.category).toBe(category);
-//       });
-//     });
+  describe('Category Operations', () => {
+    beforeEach(async () => {
+      // Create test products for category tests
+      await store.create({
+        ...testProduct,
+        product_name: 'Category Test Headphones 1',
+      });
+      await store.create({
+        ...testProduct,
+        product_name: 'Category Test Headphones 2',
+      });
+    });
 
-//     it('should handle empty category results', async () => {
-//       const emptyCategory: ProductCategory = 'earphones';
-//       const products = await store.getByCategory(emptyCategory);
-//       expect(products).toEqual([]);
-//     });
-//   });
+    afterEach(async () => {
+      await client.query('DELETE FROM products');
+    });
 
-//   describe('Popular Products', () => {
-//     it('should respect product limit with proper typing', async () => {
-//       const productLimit = 5;
-//       const totalProducts = 7;
+    it('getByCategory should return products in specified category', async () => {
+      const result = await store.getByCategory('headphones');
 
-//       // Create multiple test products
-//       for (let i = 0; i < totalProducts; i++) {
-//         await store.create({
-//           ...testProduct,
-//           product_name: `Test Product ${i + 1}`,
-//         });
-//       }
+      expect(result).toBeDefined();
+      expect(result.length).toBeGreaterThan(0);
+      result.forEach((product) => {
+        if (product.category) {
+          expect(product.category).toBe('headphones');
+        }
+      });
+    });
 
-//       const popularProducts = await store.getPopularProducts(productLimit);
+    it('getByCategory should return empty array for non-existent category', async () => {
+      const result = await store.getByCategory('speakers' as ProductCategory);
 
-//       expect(popularProducts.length).toBeLessThanOrEqual(productLimit);
-//       popularProducts.forEach((product) => {
-//         expect(product.id).toBeDefined();
-//         expect(typeof product.price).toBe('number');
-//       });
-//     });
-//   });
-// });
+      expect(result).toBeDefined();
+      expect(result.length).toBe(0);
+    });
+  });
+
+  describe('Popular Products', () => {
+    it('getPopular should return up to 5 products', async () => {
+      const result = await store.getPopular();
+
+      expect(result).toBeDefined();
+      expect(result.length).toBeLessThanOrEqual(5);
+    });
+  });
+
+  describe('Search Operations', () => {
+    beforeAll(async () => {
+      await store.create(testProduct);
+    });
+
+    afterAll(async () => {
+      await client.query('DELETE FROM products');
+    });
+
+    it('searchProducts should find products by name', async () => {
+      const result = await store.searchProducts('Headphones');
+
+      expect(result).toBeDefined();
+      expect(result.length).toBeGreaterThan(0);
+      result.forEach((product) => {
+        if (product.product_name) {
+          expect(product.product_name.toLowerCase()).toContain('headphones');
+        }
+      });
+    });
+
+    it('searchProducts should find products by description', async () => {
+      const result = await store.searchProducts('Test description');
+
+      expect(result).toBeDefined();
+      expect(result.length).toBeGreaterThan(0);
+    });
+
+    it('searchProducts should return empty array for no matches', async () => {
+      const result = await store.searchProducts('NonExistentProduct12345');
+
+      expect(result).toBeDefined();
+      expect(result.length).toBe(0);
+    });
+  });
+});

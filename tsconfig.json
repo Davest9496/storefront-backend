@@ -1,28 +1,42 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "es6",
     "module": "commonjs",
-    "lib": ["es2020"],
+    "lib": ["es6", "dom"],
     "outDir": "./dist",
-    "rootDirs": ["./src", "src/tests"],
+    "rootDir": ".",
     "strict": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
     "moduleResolution": "node",
+    "esModuleInterop": true,
     "resolveJsonModule": true,
-    "types": ["node", "express", "jsonwebtoken", "jasmine"],
-    "typeRoots": ["./src/types", "./node_modules/@types", "./"],
-    "sourceMap": true
-  },
-  "baseUrl": ".",
+    "sourceMap": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "typeRoots": ["./node_modules/@types", "./src/types"],
+    "baseUrl": ".",
     "paths": {
-      "*": [
-        "node_modules/*",
-        "types/*"
-      ]
-    },
-  "include": ["src/**/*", "src/tests/**/*", "global.d.ts", "specs/**/*", "src/tests/helpers/test-helper.ts"],
-  "exclude": ["node_modules", "./dist", "spec"]
+      "@/*": ["src/*"],
+      "@config/*": ["src/config/*"],
+      "@controllers/*": ["src/controllers/*"],
+      "@models/*": ["src/models/*"],
+      "@middleware/*": ["src/middleware/*"],
+      "@routes/*": ["src/routes/*"],
+      "@utils/*": ["src/utils/*"],
+      "@types/*": ["src/types/*"],
+      "@scripts/*": ["src/scripts/*"]
+    }
+  },
+  "include": ["src/**/*", "tests/**/*", "spec/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+  ]
 }

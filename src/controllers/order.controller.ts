@@ -1,146 +1,295 @@
 import { Request, Response } from 'express';
-import { Pool } from 'pg';
 import { OrderStore } from '../models/order.model';
-import { CreateOrderDTO, CreateOrderProductDTO } from '../types';
-import client from '../config/database.config';
+import {
+  isOrderStatusRequest,
+  OrderStatusRequest,
+} from '../types/request.types';
+import {
+  BadRequestError,
+  NotFoundError,
+  ForbiddenError,
+  isAppError,
+  handleUnknownError,
+} from '../utils/error.utils';
 
 export class OrderController {
   private store: OrderStore;
 
-  constructor(dbClient: Pool = client) {
-    this.store = new OrderStore(dbClient);
+  constructor() {
+    this.store = new OrderStore();
   }
 
-  async getCurrentOrder(req: Request, res: Response): Promise<void> {
+  // GET /orders
+  getAllOrders = async (_req: Request, res: Response): Promise<Response> => {
     try {
-      const userId = parseInt(req.params.userId);
-      if (isNaN(userId)) {
-        res.status(400).json({ error: 'Invalid user ID' });
-        return;
+      const orders = await this.store.index();
+      return res.json(orders);
+    } catch (error) {
+      console.error('Error in getAllOrders:', error);
+      return res.status(500).json({
+        error: 'Failed to fetch orders',
+        details: handleUnknownError(error),
+      });
+    }
+  };
+
+  // GET /orders/:id
+  getOrder = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const orderId = parseInt(req.params.id);
+      if (isNaN(orderId)) {
+        throw new BadRequestError('Invalid order ID');
       }
 
-      const order = await this.store.getCurrentOrder(userId);
+      const order = await this.store.show(orderId);
       if (!order) {
-        res.status(404).json({ message: 'No active order found' });
-        return;
+        throw new NotFoundError(`Order ${orderId} not found`);
       }
 
-      res.json(order);
+      // Check if the user has permission to view this order
+      if (req.user && order.user_id !== req.user.id) {
+        throw new ForbiddenError(
+          'You do not have permission to view this order'
+        );
+      }
+
+      return res.json(order);
     } catch (error) {
-      console.error('Error getting current order:', error);
-      res.status(500).json({
-        error: 'Could not retrieve current order',
-        details: error instanceof Error ? error.message : 'Unknown error',
+      console.error('Error in getOrder:', error);
+
+      if (isAppError(error)) {
+        return res.status(error.statusCode).json({
+          error: error.message,
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Failed to fetch order',
+        details: handleUnknownError(error),
       });
     }
-  }
+  };
 
-  async getCompletedOrders(req: Request, res: Response): Promise<void> {
+  // POST /orders
+  createOrder = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      if (!req.user) {
+        throw new ForbiddenError('Authentication required');
+      }
+
+      const newOrder = await this.store.create(req.user.id);
+      return res.status(201).json(newOrder);
+    } catch (error) {
+      console.error('Error in createOrder:', error);
+
+      if (isAppError(error)) {
+        return res.status(error.statusCode).json({
+          error: error.message,
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Failed to create order',
+        details: handleUnknownError(error),
+      });
+    }
+  };
+
+  // POST /orders/:id/products
+  addProduct = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const orderId = parseInt(req.params.id);
+      if (isNaN(orderId)) {
+        throw new BadRequestError('Invalid order ID');
+      }
+
+      const { product_id, quantity } = req.body;
+      if (!product_id || !quantity) {
+        throw new BadRequestError('Product ID and quantity are required');
+      }
+
+      // Check if order exists and user has permission
+      const order = await this.store.show(orderId);
+      if (!order) {
+        throw new NotFoundError(`Order ${orderId} not found`);
+      }
+
+      if (req.user && order.user_id !== req.user.id) {
+        throw new ForbiddenError(
+          'You do not have permission to modify this order'
+        );
+      }
+
+      // Add product to order
+      const result = await this.store.addProduct(orderId, product_id, quantity);
+      return res.json(result);
+    } catch (error) {
+      console.error('Error in addProduct:', error);
+
+      if (isAppError(error)) {
+        return res.status(error.statusCode).json({
+          error: error.message,
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Failed to add product to order',
+        details: handleUnknownError(error),
+      });
+    }
+  };
+
+  // DELETE /orders/:id
+  deleteOrder = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const orderId = parseInt(req.params.id);
+      if (isNaN(orderId)) {
+        throw new BadRequestError('Invalid order ID');
+      }
+
+      // First check if order exists and user has permission
+      const order = await this.store.show(orderId);
+      if (!order) {
+        throw new NotFoundError(`Order ${orderId} not found`);
+      }
+
+      if (req.user && order.user_id !== req.user.id) {
+        throw new ForbiddenError(
+          'You do not have permission to delete this order'
+        );
+      }
+
+      await this.store.delete(orderId);
+      return res.json({ message: 'Order deleted successfully' });
+    } catch (error) {
+      console.error('Error in deleteOrder:', error);
+
+      if (isAppError(error)) {
+        return res.status(error.statusCode).json({
+          error: error.message,
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Failed to delete order',
+        details: handleUnknownError(error),
+      });
+    }
+  };
+
+  // PATCH /orders/:id/status
+  updateStatus = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const orderId = parseInt(req.params.id);
+      if (isNaN(orderId)) {
+        throw new BadRequestError('Invalid order ID');
+      }
+
+      if (!isOrderStatusRequest(req.body)) {
+        throw new BadRequestError('Invalid status update request');
+      }
+
+      const statusUpdate: OrderStatusRequest = req.body;
+
+      // First check if order exists and user has permission
+      const order = await this.store.show(orderId);
+      if (!order) {
+        throw new NotFoundError(`Order ${orderId} not found`);
+      }
+
+      if (req.user && order.user_id !== req.user.id) {
+        throw new ForbiddenError(
+          'You do not have permission to update this order'
+        );
+      }
+
+      const updatedOrder = await this.store.updateStatus(
+        orderId,
+        statusUpdate.status
+      );
+      return res.json(updatedOrder);
+    } catch (error) {
+      console.error('Error in updateStatus:', error);
+
+      if (isAppError(error)) {
+        return res.status(error.statusCode).json({
+          error: error.message,
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Failed to update order status',
+        details: handleUnknownError(error),
+      });
+    }
+  };
+
+  // GET /orders/user/:userId/current
+  getCurrentOrder = async (req: Request, res: Response): Promise<Response> => {
     try {
       const userId = parseInt(req.params.userId);
       if (isNaN(userId)) {
-        res.status(400).json({ error: 'Invalid user ID' });
-        return;
+        throw new BadRequestError('Invalid user ID');
       }
 
-      const orders = await this.store.getCompletedOrders(userId);
-      res.json(orders);
+      // Check if user is requesting their own order
+      if (req.user && userId !== req.user.id) {
+        throw new ForbiddenError('You can only view your own current order');
+      }
+
+      const currentOrder = await this.store.getCurrentOrder(userId);
+      if (!currentOrder) {
+        return res.json({ message: 'No active order found' });
+      }
+
+      return res.json(currentOrder);
     } catch (error) {
-      console.error('Error getting completed orders:', error);
-      res.status(500).json({
-        error: 'Could not retrieve completed orders',
-        details: error instanceof Error ? error.message : 'Unknown error',
+      console.error('Error in getCurrentOrder:', error);
+
+      if (isAppError(error)) {
+        return res.status(error.statusCode).json({
+          error: error.message,
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Failed to fetch current order',
+        details: handleUnknownError(error),
       });
     }
-  }
+  };
 
-  async create(req: Request, res: Response): Promise<void> {
+  // GET /orders/user/:userId/completed
+  getCompletedOrders = async (
+    req: Request,
+    res: Response
+  ): Promise<Response> => {
     try {
-      if (!req.user?.id) {
-        res.status(401).json({ error: 'User not authenticated' });
-        return;
+      const userId = parseInt(req.params.userId);
+      if (isNaN(userId)) {
+        throw new BadRequestError('Invalid user ID');
       }
 
-      const orderData: CreateOrderDTO = {
-        user_id: req.user.id,
-        status: 'active',
-      };
+      // Check if user is requesting their own orders
+      if (req.user && userId !== req.user.id) {
+        throw new ForbiddenError('You can only view your own completed orders');
+      }
 
-      const newOrder = await this.store.create(orderData);
-      res.status(201).json(newOrder);
+      const completedOrders = await this.store.getCompletedOrders(userId);
+      return res.json(completedOrders);
     } catch (error) {
-      console.error('Error creating order:', error);
-      res.status(500).json({
-        error: 'Could not create order',
-        details: error instanceof Error ? error.message : 'Unknown error',
+      console.error('Error in getCompletedOrders:', error);
+
+      if (isAppError(error)) {
+        return res.status(error.statusCode).json({
+          error: error.message,
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Failed to fetch completed orders',
+        details: handleUnknownError(error),
       });
     }
-  }
-
-  async addProduct(req: Request, res: Response): Promise<void> {
-    try {
-      const orderId = parseInt(req.params.id);
-      if (isNaN(orderId)) {
-        res.status(400).json({ error: 'Invalid order ID' });
-        return;
-      }
-
-      const orderProduct: CreateOrderProductDTO = {
-        order_id: orderId,
-        product_id: req.body.product_id,
-        quantity: req.body.quantity,
-      };
-
-      if (!this.validateOrderProduct(orderProduct)) {
-        res.status(400).json({ error: 'Invalid product data' });
-        return;
-      }
-
-      const result = await this.store.addProduct(orderProduct);
-      res.status(201).json(result);
-    } catch (error) {
-      console.error('Error adding product to order:', error);
-      res.status(500).json({
-        error: 'Could not add product to order',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
-  }
-
-  async completeOrder(req: Request, res: Response): Promise<void> {
-    try {
-      const orderId = parseInt(req.params.id);
-      if (isNaN(orderId)) {
-        res.status(400).json({ error: 'Invalid order ID' });
-        return;
-      }
-
-      if (!req.user?.id) {
-        res.status(401).json({ error: 'User not authenticated' });
-        return;
-      }
-
-      const completedOrder = await this.store.completeOrder(
-        orderId,
-        req.user.id
-      );
-      res.json(completedOrder);
-    } catch (error) {
-      console.error('Error completing order:', error);
-      res.status(500).json({
-        error: 'Could not complete order',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
-  }
-
-  private validateOrderProduct(data: CreateOrderProductDTO): boolean {
-    return !!(
-      data.product_id &&
-      typeof data.product_id === 'number' &&
-      data.quantity &&
-      typeof data.quantity === 'number' &&
-      data.quantity > 0
-    );
-  }
+  };
 }

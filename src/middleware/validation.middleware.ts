@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { CreateUserDTO } from '../types';
+import { CreateUserDTO } from '../types/shared.types';
 
 export const validateUserCreate = (
   req: Request,

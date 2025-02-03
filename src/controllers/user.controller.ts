@@ -1,96 +1,159 @@
+import { Request, Response } from 'express';
 import { UserStore } from '../models/user.model';
-import { CreateUserDTO, User, RecentOrder } from '../types';
-import client from '../config/database.config';
+import { generateToken } from '../middleware/auth.middleware';
+import {
+  CreateUserDTO,
+  UpdatePasswordDTO,
+  UpdateUserDTO,
+} from '../types/shared.types';
 
 export class UserController {
   private store: UserStore;
 
   constructor() {
-    this.store = new UserStore(client);
+    this.store = new UserStore();
   }
 
-  async create(
-    userData: CreateUserDTO
-  ): Promise<Omit<User, 'password_digest'>> {
+  index = async (_req: Request, res: Response): Promise<Response> => {
     try {
-      // Check for existing email before creating
-      const existingUser = await this.store.findByEmail(userData.email);
-      if (existingUser) {
-        throw new Error('Email already exists');
+      const users = await this.store.index();
+
+      if (!users) {
+        return res.status(404).json({ error: 'No users found' });
       }
-      return await this.store.create(userData);
-    } catch (error) {
-      // Propagate the error with its original message
-      throw error;
-    }
-  }
 
-  async index(): Promise<Omit<User, 'password_digest'>[]> {
-    try {
-      return await this.store.index();
-    } catch (error) {
-      throw new Error(`Error retrieving users: ${error}`);
+      return res.json(users);
+    } catch (err) {
+      return res.status(500).json({
+        error: 'Failed to fetch users',
+        details: err instanceof Error ? err.message : String(err),
+      });
     }
-  }
+  };
 
-  async show(id: number): Promise<Omit<User, 'password_digest'>> {
+  show = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const user = await this.store.show(id);
+      const userId = parseInt(req.params.id);
+      const user = await this.store.show(userId);
+
       if (!user) {
-        throw new Error('User not found');
+        return res.status(404).json({ error: 'User not found' });
       }
-      return user;
-    } catch (error) {
-      throw error;
+
+      if (req.user?.id !== userId) {
+        return res.status(403).json({
+          error: 'Unauthorized access to this resource',
+        });
+      }
+
+      return res.json(user);
+    } catch (err) {
+      return res.status(500).json({
+        error: 'Failed to fetch user',
+        details: err instanceof Error ? err.message : String(err),
+      });
     }
-  }
+  };
 
-  async update(
-    id: number,
-    userData: Partial<Omit<CreateUserDTO, 'password'>>
-  ): Promise<Omit<User, 'password_digest'>> {
+  create = async (req: Request, res: Response): Promise<Response> => {
     try {
-      // If updating email, check for conflicts
-      if (userData.email) {
-        const conn = await client.connect();
-        try {
-          // We need to check for existing email, excluding the current user
-          const result = await conn.query(
-            'SELECT id FROM users WHERE email = $1 AND id != $2',
-            [userData.email, id]
-          );
+      const userData: CreateUserDTO = req.body;
+      const newUser = await this.store.create(userData);
+      const token = generateToken(newUser.id as number, newUser.email);
 
-          if (result.rows.length > 0) {
-            throw new Error('Email already exists');
-          }
-        } finally {
-          conn.release();
+      return res.status(201).json({
+        user: newUser,
+        token,
+      });
+    } catch (err) {
+      if (
+        err instanceof Error &&
+        err.message.includes('Email already exists')
+      ) {
+        return res.status(400).json({ error: err.message });
+      }
+
+      return res.status(500).json({
+        error: 'Failed to create user',
+        details: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
+
+  update = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = parseInt(req.params.id);
+      const updates: UpdateUserDTO = req.body;
+      const updatedUser = await this.store.update(userId, updates);
+      return res.json(updatedUser);
+    } catch (err) {
+      if (err instanceof Error) {
+        if (err.message.includes('User not found')) {
+          return res.status(404).json({ error: err.message });
+        }
+        if (err.message.includes('Email already exists')) {
+          return res.status(400).json({ error: err.message });
         }
       }
 
-      return await this.store.update(id, userData);
-    } catch (error) {
-      // Make sure to propagate the error with its message intact
-      if (error instanceof Error) {
-        throw error;
+      return res.status(500).json({
+        error: 'Failed to update user',
+        details: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
+
+  updatePassword = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = parseInt(req.params.id);
+      const passwordData: UpdatePasswordDTO = req.body;
+
+      await this.store.updatePassword(userId, passwordData);
+      return res.json({ message: 'Password updated successfully' });
+    } catch (err) {
+      if (err instanceof Error) {
+        if (err.message.includes('User not found')) {
+          return res.status(404).json({ error: err.message });
+        }
+        if (err.message.includes('Current password is incorrect')) {
+          return res.status(400).json({ error: err.message });
+        }
       }
-      throw new Error('An unexpected error occurred during update');
-    }
-  }
 
-  async delete(id: number): Promise<void> {
-    try {
-      await this.store.delete(id);
-    } catch (error) {
-      throw new Error(`Error deleting user: ${error}`);
+      return res.status(500).json({
+        error: 'Failed to update password',
+        details: err instanceof Error ? err.message : String(err),
+      });
     }
-  }
+  };
 
-  async getRecentOrders(userId: number): Promise<RecentOrder[]> {
+  delete = async (req: Request, res: Response): Promise<Response> => {
     try {
-      return await this.store.getRecentOrders(userId);
-    } catch (error) {
-      throw new Error(`Error retrieving recent orders: ${error}`);
+      const userId = parseInt(req.params.id);
+      await this.store.delete(userId);
+      return res.json({ message: 'User deleted successfully' });
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('User not found')) {
+        return res.status(404).json({ error: err.message });
+      }
+
+      return res.status(500).json({
+        error: 'Failed to delete user',
+        details: err instanceof Error ? err.message : String(err),
+      });
     }
-  }
+  };
+
+  getRecentOrders = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const userId = parseInt(req.params.id);
+      const recentOrders = await this.store.getRecentOrders(userId);
+      return res.json(recentOrders);
+    } catch (err) {
+      return res.status(500).json({
+        error: 'Failed to fetch recent orders',
+        details: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
 }

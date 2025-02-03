@@ -1,137 +1,182 @@
 import { Request, Response } from 'express';
-import { Pool } from 'pg';
 import { ProductStore } from '../models/product.model';
-import { CreateProductDTO, ProductCategory } from '../types';
-import client from '../config/database.config';
+import { CreateProductDTO } from '../types/shared.types';
+import {
+  NotFoundError,
+  BadRequestError,
+  DatabaseError,
+} from '../utils/error.utils';
 
 export class ProductController {
   private store: ProductStore;
 
-  constructor(dbClient: Pool = client) {
-    this.store = new ProductStore(dbClient);
+  constructor() {
+    this.store = new ProductStore();
   }
 
-  // GET /api/products
-  async index(_req: Request, res: Response): Promise<void> {
+  // GET /products
+  index = async (_req: Request, res: Response): Promise<Response> => {
     try {
       const products = await this.store.index();
-      res.json(products);
-    } catch (error) {
-      console.error('Error getting products:', error);
-      res.status(500).json({
-        error: 'Could not retrieve products',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      });
+      return res.json(products);
+    } catch (err) {
+      if (err instanceof DatabaseError) {
+        return res.status(500).json({ error: err.message });
+      }
+      return res.status(500).json({ error: 'An unexpected error occurred' });
     }
-  }
+  };
 
-  // GET /api/products/:id
-  async show(req: Request, res: Response): Promise<void> {
+  // GET /products/:id
+  show = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const productId = parseInt(req.params.id);
-      if (isNaN(productId)) {
-        res.status(400).json({ error: 'Invalid product ID' });
-        return;
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid product ID' });
       }
 
-      try {
-        const product = await this.store.show(productId);
-        res.json(product);
-      } catch (err) {
-        if (err instanceof Error && err.message.includes('not found')) {
-          res.status(404).json({ error: 'Product not found' });
-          return;
-        }
-        throw err;
+      const product = await this.store.show(id);
+      return res.json(product);
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        return res.status(404).json({ error: err.message });
       }
-    } catch (error) {
-      console.error('Error getting product:', error);
-      res.status(500).json({
-        error: 'Could not retrieve product',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      });
+      if (err instanceof DatabaseError) {
+        return res.status(500).json({ error: err.message });
+      }
+      return res.status(500).json({ error: 'An unexpected error occurred' });
     }
-  }
+  };
 
-  // POST /api/products
-  async create(req: Request, res: Response): Promise<void> {
+  // POST /products
+  create = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const productData: CreateProductDTO = {
-        product_name: req.body.product_name,
-        price: parseFloat(req.body.price),
-        category: req.body.category,
-        product_desc: req.body.product_desc,
-        image_name: req.body.image_name,
-        product_features: req.body.product_features,
-        product_accessories: req.body.product_accessories,
-      };
+      const productData: CreateProductDTO = req.body;
 
       // Validate required fields
-      if (!this.validateProductData(productData)) {
-        res.status(400).json({ error: 'Missing or invalid required fields' });
-        return;
+      if (
+        !productData.product_name ||
+        !productData.price ||
+        !productData.category
+      ) {
+        return res.status(400).json({
+          error:
+            'Missing required fields: product_name, price, and category are required',
+        });
+      }
+
+      // Validate price is positive
+      if (productData.price <= 0) {
+        return res.status(400).json({ error: 'Price must be greater than 0' });
       }
 
       const newProduct = await this.store.create(productData);
-      res.status(201).json(newProduct);
-    } catch (error) {
-      console.error('Error creating product:', error);
-      res.status(500).json({
-        error: 'Could not create product',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      });
+      return res.status(201).json(newProduct);
+    } catch (err) {
+      if (err instanceof DatabaseError) {
+        return res.status(500).json({ error: err.message });
+      }
+      return res.status(500).json({ error: 'An unexpected error occurred' });
     }
-  }
+  };
 
-  // GET /api/products/category/:category
-  async getByCategory(req: Request, res: Response): Promise<void> {
+  // PUT /products/:id
+  update = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const category = req.params.category as ProductCategory;
-      if (!this.isValidCategory(category)) {
-        res.status(400).json({ error: 'Invalid product category' });
-        return;
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid product ID' });
       }
 
-      const products = await this.store.getByCategory(category);
-      res.json(products);
-    } catch (error) {
-      console.error('Error getting products by category:', error);
-      res.status(500).json({
-        error: 'Could not retrieve products',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
-  }
+      const updates = req.body;
 
-  // GET /api/products/popular
-  async getPopularProducts(_req: Request, res: Response): Promise<void> {
+      // Validate price if provided
+      if (updates.price !== undefined && updates.price <= 0) {
+        return res.status(400).json({ error: 'Price must be greater than 0' });
+      }
+
+      const updatedProduct = await this.store.update(id, updates);
+      return res.json(updatedProduct);
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        return res.status(404).json({ error: err.message });
+      }
+      if (err instanceof BadRequestError) {
+        return res.status(400).json({ error: err.message });
+      }
+      if (err instanceof DatabaseError) {
+        return res.status(500).json({ error: err.message });
+      }
+      return res.status(500).json({ error: 'An unexpected error occurred' });
+    }
+  };
+
+  // DELETE /products/:id
+  delete = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const products = await this.store.getPopularProducts(5);
-      res.json(products);
-    } catch (error) {
-      console.error('Error getting popular products:', error);
-      res.status(500).json({
-        error: 'Could not retrieve popular products',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid product ID' });
+      }
+
+      await this.store.delete(id);
+      return res.json({ message: 'Product deleted successfully' });
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        return res.status(404).json({ error: err.message });
+      }
+      if (err instanceof DatabaseError) {
+        return res.status(500).json({ error: err.message });
+      }
+      return res.status(500).json({ error: 'An unexpected error occurred' });
     }
-  }
+  };
 
-  private validateProductData(data: CreateProductDTO): boolean {
-    return !!(
-      data.product_name &&
-      typeof data.product_name === 'string' &&
-      data.price &&
-      typeof data.price === 'number' &&
-      data.price > 0 &&
-      this.isValidCategory(data.category) &&
-      data.image_name &&
-      Array.isArray(data.product_features) &&
-      Array.isArray(data.product_accessories)
-    );
-  }
+  // GET /products/category/:category
+  getByCategory = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const { category } = req.params;
+      const products = await this.store.getByCategory(category);
+      return res.json(products);
+    } catch (err) {
+      if (err instanceof DatabaseError) {
+        return res.status(500).json({ error: err.message });
+      }
+      return res.status(500).json({ error: 'An unexpected error occurred' });
+    }
+  };
 
-  private isValidCategory(category: string): category is ProductCategory {
-    return ['headphones', 'speakers', 'earphones'].includes(category);
-  }
+  // GET /products/popular
+  getPopular = async (
+    _req: Request,
+    res: Response
+  ): Promise<Response> => {
+    try {
+      const products = await this.store.getPopular();
+      return res.json(products);
+    } catch (err) {
+      if (err instanceof DatabaseError) {
+        return res.status(500).json({ error: err.message });
+      }
+      return res.status(500).json({ error: 'An unexpected error occurred' });
+    }
+  };
+
+  // GET /products/search
+  searchProducts = async (req: Request, res: Response): Promise<Response> => {
+    try {
+      const { q } = req.query;
+      if (!q || typeof q !== 'string') {
+        return res.status(400).json({ error: 'Search term is required' });
+      }
+
+      const products = await this.store.searchProducts(q);
+      return res.json(products);
+    } catch (err) {
+      if (err instanceof DatabaseError) {
+        return res.status(500).json({ error: err.message });
+      }
+      return res.status(500).json({ error: 'An unexpected error occurred' });
+    }
+  };
 }

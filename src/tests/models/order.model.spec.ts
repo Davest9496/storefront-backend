@@ -1,227 +1,189 @@
-// import { OrderStore } from '../../models/order.model';
-// import { testDb } from '../helpers/database';
-// import { TestHelper } from '../helpers/test-helper';
-// import { CreateOrderDTO } from '../types';
+import { OrderStore } from '../../models/order.model';
+import { UserStore } from '../../models/user.model';
+import { ProductStore } from '../../models/product.model';
+import {
+  Order,
+  User,
+  Product,
+  CreateUserDTO,
+  CreateProductDTO,
+  ProductCategory,
+} from '../../types/shared.types';
+import { Pool } from 'pg';
+import dbClient from '../../config/database.config';
 
-// describe('Order Store', () => {
-//   // Initialize stores and test helper
-//   const store = new OrderStore(testDb);
-//   const testHelper = TestHelper.getInstance(testDb);
+describe('Order Model', () => {
+  const orderStore = new OrderStore();
+  const userStore = new UserStore();
+  const productStore = new ProductStore();
 
-//   // Test data used throughout tests
-//   let userId: number;
-//   let productId: number;
+  let testUser: User & { id: number };
+  let testProduct: Product & { id: number };
+  let testOrder: Order & { id: number };
+  let client: Pool;
 
-//   // Set up base test data before each test
-//   beforeEach(async () => {
-//     // Start with a clean database state
-//     await testHelper.cleanTables();
+  beforeAll(async () => {
+    client = dbClient.dbPool;
 
-//     // Create test user and product that is needed for orders
-//     userId = await testHelper.createTestUser(
-//       'John',
-//       'Doe',
-//       'john.doe@test.com',
-//       'password123'
-//     );
+    // Create test user
+    const userData: CreateUserDTO = {
+      first_name: 'Test',
+      last_name: 'User',
+      email: 'test@example.com',
+      password: 'password123',
+    };
+    const user = await userStore.create(userData);
+    if (!user.id) throw new Error('Failed to create test user');
+    testUser = { ...user, id: user.id }; // Ensure id is non-null
 
-//     productId = await testHelper.createTestProduct(
-//       'Test Headphones',
-//       299.99,
-//       'headphones'
-//     );
-//   });
+    // Create test product
+    const productData: CreateProductDTO = {
+      product_name: 'Test Headphones',
+      price: 299.99,
+      category: 'headphones' as ProductCategory,
+      product_desc: 'Test description',
+      image_name: 'test-headphones',
+      product_features: ['Feature 1', 'Feature 2'],
+      product_accessories: ['Accessory 1', 'Accessory 2'],
+    };
+    const product = await productStore.create(productData);
+    if (!product.id) throw new Error('Failed to create test product');
+    testProduct = { ...product, id: product.id }; // Ensure id is non-null
+  });
 
-//   describe('Basic Order Operations', () => {
-//     describe('create method', () => {
-//       it('should create a new order with active status', async () => {
-//         const orderData: CreateOrderDTO = {
-//           user_id: userId,
-//           status: 'active',
-//         };
+  afterAll(async () => {
+    // Clean up test data
+    try {
+      const connection = await client.connect();
+      await connection.query('DELETE FROM order_products');
+      await connection.query('DELETE FROM orders');
+      await connection.query('DELETE FROM products');
+      await connection.query('DELETE FROM users');
+      connection.release();
+    } catch (err) {
+      console.error('Error cleaning up test data:', err);
+    }
+  });
 
-//         const result = await store.create(orderData);
+  describe('Method existence', () => {
+    it('should have a create method', () => {
+      expect(orderStore.create).toBeDefined();
+    });
 
-//         // Verify the created order has all required properties
-//         expect(result).toBeDefined();
-//         expect(result.id).toBeDefined();
-//         expect(result.user_id).toBe(userId);
-//         expect(result.status).toBe('active');
-//       });
+    it('should have an index method', () => {
+      expect(orderStore.index).toBeDefined();
+    });
 
-//       it('should default to active status if not specified', async () => {
-//         const orderData: CreateOrderDTO = {
-//           user_id: userId,
-//         };
+    it('should have a show method', () => {
+      expect(orderStore.show).toBeDefined();
+    });
 
-//         const result = await store.create(orderData);
-//         expect(result.status).toBe('active');
-//       });
+    it('should have a delete method', () => {
+      expect(orderStore.delete).toBeDefined();
+    });
+  });
 
-//       it('should reject order creation for non-existent user', async () => {
-//         const nonExistentUserId = 999;
-//         const orderData: CreateOrderDTO = {
-//           user_id: nonExistentUserId,
-//           status: 'active',
-//         };
+  describe('CRUD Operations', () => {
+    it('create method should add a new order', async () => {
+      const order = await orderStore.create(testUser.id);
+      if (!order.id) throw new Error('Failed to create test order');
+      testOrder = { ...order, id: order.id }; // Ensure id is non-null
 
-//         await expectAsync(store.create(orderData)).toBeRejectedWithError(
-//           /violates foreign key constraint/
-//         );
-//       });
-//     });
+      expect(testOrder).toBeDefined();
+      expect(testOrder.user_id).toBe(testUser.id);
+      expect(testOrder.status).toBe('active');
+    });
 
-//     describe('getCurrentOrder method', () => {
-//       it('should return null when user has no active order', async () => {
-//         const result = await store.getCurrentOrder(userId);
-//         expect(result).toBeNull();
-//       });
+    it('index method should return a list of orders', async () => {
+      const result = await orderStore.index();
+      expect(result).toBeDefined();
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBeGreaterThan(0);
+    });
 
-//       it('should return only active order when user has multiple orders', async () => {
-//         // Create an active order
-//         const activeOrderId = await testHelper.createTestOrder(
-//           userId,
-//           'active'
-//         );
+    it('show method should return the correct order', async () => {
+      const result = await orderStore.show(testOrder.id);
+      expect(result).toBeDefined();
+      expect(result?.id).toBe(testOrder.id);
+      expect(result?.user_id).toBe(testUser.id);
+    });
 
-//         // Create a completed order to ensure it's not returned
-//         await testHelper.createTestOrder(userId, 'complete');
+    it('should return null for non-existent order', async () => {
+      const result = await orderStore.show(999999);
+      expect(result).toBeNull();
+    });
+  });
 
-//         const currentOrder = await store.getCurrentOrder(userId);
+  describe('Order Products Operations', () => {
+    it('should add a product to an order', async () => {
+      const quantity = 2;
+      const result = await orderStore.addProduct(
+        testOrder.id,
+        testProduct.id,
+        quantity
+      );
 
-//         expect(currentOrder).toBeDefined();
-//         expect(currentOrder?.id).toBe(activeOrderId);
-//         expect(currentOrder?.status).toBe('active');
-//       });
-//     });
-//   });
+      expect(result).toBeDefined();
+      expect(result.order_id).toBe(testOrder.id);
+      expect(result.product_id).toBe(testProduct.id);
+      expect(result.quantity).toBe(quantity);
+    });
 
-//   describe('Order Product Operations', () => {
-//     describe('addProduct method', () => {
-//       it('should add product to active order successfully', async () => {
-//         const activeOrderId = await testHelper.createTestOrder(
-//           userId,
-//           'active'
-//         );
-//         const quantity = 2;
+    it('should not add product to completed order', async () => {
+      // First complete the order
+      await orderStore.updateStatus(testOrder.id, 'complete');
 
-//         const result = await store.addProduct({
-//           order_id: activeOrderId,
-//           product_id: productId,
-//           quantity,
-//         });
+      await expectAsync(
+        orderStore.addProduct(testOrder.id, testProduct.id, 1)
+      ).toBeRejectedWithError(
+        `Could not add product ${testProduct.id} to order ${testOrder.id}. Error: Cannot add products to completed order ${testOrder.id}`
+      );
+    });
+  });
 
-//         expect(result).toBeDefined();
-//         expect(result.order_id).toBe(activeOrderId);
-//         expect(result.product_id).toBe(productId);
-//         expect(result.quantity).toBe(quantity);
-//       });
+  describe('Order Status Operations', () => {
+    it('should update order status', async () => {
+      const result = await orderStore.updateStatus(testOrder.id, 'complete');
+      expect(result).toBeDefined();
+      expect(result.status).toBe('complete');
+    });
 
-//       it('should reject adding product to non-existent order', async () => {
-//         const nonExistentOrderId = 999;
+    it('should get current order for user', async () => {
+      // Create a new active order since previous one was completed
+      await orderStore.create(testUser.id);
+      const result = await orderStore.getCurrentOrder(testUser.id);
 
-//         await expectAsync(
-//           store.addProduct({
-//             order_id: nonExistentOrderId,
-//             product_id: productId,
-//             quantity: 1,
-//           })
-//         ).toBeRejectedWithError(/Order 999 not found/);
-//       });
+      expect(result).toBeDefined();
+      expect(result?.status).toBe('active');
+      expect(result?.user_id).toBe(testUser.id);
+    });
 
-//       it('should reject adding non-existent product', async () => {
-//         const activeOrderId = await testHelper.createTestOrder(
-//           userId,
-//           'active'
-//         );
-//         const nonExistentProductId = 999;
+    it('should get completed orders for user', async () => {
+      const result = await orderStore.getCompletedOrders(testUser.id);
 
-//         await expectAsync(
-//           store.addProduct({
-//             order_id: activeOrderId,
-//             product_id: nonExistentProductId,
-//             quantity: 1,
-//           })
-//         ).toBeRejectedWithError(/violates foreign key constraint/);
-//       });
-//     });
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBeGreaterThan(0);
+      expect(result[0].status).toBe('complete');
+    });
+  });
 
-//     describe('getRecentOrders method', () => {
-//       it('should return empty array for user with no orders', async () => {
-//         const newUserId = await testHelper.createTestUser(
-//           'Jane',
-//           'Smith',
-//           'jane@test.com'
-//         );
+  describe('Error Handling', () => {
+    it('should handle missing order gracefully', async () => {
+      await expectAsync(orderStore.delete(999999)).toBeRejectedWithError(
+        'Could not delete order 999999. Error: Order 999999 not found'
+      );
+    });
 
-//         const orders = await store.getRecentOrders(newUserId);
-//         expect(orders).toEqual([]);
-//       });
+    it('should handle invalid product ID', async () => {
+      await expectAsync(
+        orderStore.addProduct(testOrder.id, 999999, 1)
+      ).toBeRejected();
+    });
 
-//       it('should return at most 5 orders with products', async () => {
-//         // Create 7 orders with products to test limit
-//         const orderCount = 7;
-//         for (let i = 0; i < orderCount; i++) {
-//           const orderId = await testHelper.createTestOrder(userId);
-//           await testHelper.addProductToOrder(orderId, productId, i + 1);
-//         }
-
-//         const recentOrders = await store.getRecentOrders(userId);
-
-//         expect(recentOrders.length).toBeLessThanOrEqual(5);
-//         recentOrders.forEach((order) => {
-//           expect(order.id).toBeDefined();
-//           expect(order.status).toBeDefined();
-//           expect(Array.isArray(order.products)).toBe(true);
-//           expect(order.products.length).toBeGreaterThan(0);
-//         });
-//       });
-//     });
-//   });
-
-//   describe('Order Status Operations', () => {
-//     describe('completeOrder method', () => {
-//       it('should complete an active order', async () => {
-//         const activeOrderId = await testHelper.createTestOrder(
-//           userId,
-//           'active'
-//         );
-//         await testHelper.addProductToOrder(activeOrderId, productId, 1);
-
-//         const completedOrder = await store.completeOrder(activeOrderId, userId);
-
-//         expect(completedOrder.status).toBe('complete');
-//         expect(completedOrder.id).toBe(activeOrderId);
-//       });
-
-//       it('should reject completing already completed order', async () => {
-//         const orderId = await testHelper.createTestOrder(userId, 'active');
-
-//         // Complete the order first
-//         await store.completeOrder(orderId, userId);
-
-//         // Try to complete it again
-//         await expectAsync(
-//           store.completeOrder(orderId, userId)
-//         ).toBeRejectedWithError(/Could not complete order/);
-//       });
-
-//       it('should reject completing order of different user', async () => {
-//         const activeOrderId = await testHelper.createTestOrder(
-//           userId,
-//           'active'
-//         );
-
-//         const otherUserId = await testHelper.createTestUser(
-//           'Other',
-//           'User',
-//           'other@test.com'
-//         );
-
-//         await expectAsync(
-//           store.completeOrder(activeOrderId, otherUserId)
-//         ).toBeRejectedWithError(/Could not complete order/);
-//       });
-//     });
-//   });
-// });
+    it('should handle invalid quantities', async () => {
+      await expectAsync(
+        orderStore.addProduct(testOrder.id, testProduct.id, -1)
+      ).toBeRejected();
+    });
+  });
+});
