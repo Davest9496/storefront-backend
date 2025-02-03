@@ -45,6 +45,18 @@ export interface RecentOrder {
   products: OrderProductDetail[];
 }
 
+export interface UpdateUserDTO {
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+}
+
+export interface UpdatePasswordDTO {
+  current_password: string;
+  new_password: string;
+}
+
+
 // DTO interfaces
 export interface CreateProductDTO extends Omit<Product, 'id'> {}
 

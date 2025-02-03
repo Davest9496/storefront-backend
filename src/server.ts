@@ -1,26 +1,16 @@
 import express, { Application } from 'express';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
-import { Pool } from 'pg';
 import router from './routes/router';
+import { dbPool } from './config/database.config';
 
 dotenv.config();
-
-// Database configuration
-export const dbPool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'storefront_dev',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD,
-  port: parseInt(process.env.DB_PORT || '5432'),
-});
 
 const app: Application = express();
 const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(bodyParser.json());
-app.use(express.json());
 
 // Health check endpoint
 app.get('/health', async (_req, res) => {
@@ -32,7 +22,8 @@ app.get('/health', async (_req, res) => {
     } finally {
       client.release();
     }
-  } catch {
+  } catch (error) {
+    console.error('Health check failed:', error);
     res.status(500).json({ status: 'unhealthy', database: 'disconnected' });
   }
 });
@@ -41,11 +32,21 @@ app.get('/health', async (_req, res) => {
 app.use('/api', router);
 
 // Error handling middleware
-app.use((err: Error, _req: express.Request, res: express.Response) => {
-  console.error('Error:', err);
-  res.status(500).json({ error: 'Internal Server Error' });
-});
+app.use(
+  (
+    err: Error,
+    _req: express.Request,
+    res: express.Response,
+  ) => {
+    console.error('Error:', err);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: process.env.NODE_ENV === 'development' ? err.message : undefined,
+    });
+  }
+);
 
+// Only start server if not in test environment
 if (process.env.NODE_ENV !== 'test') {
   app.listen(port, () => {
     console.log(`Server started on port ${port}`);

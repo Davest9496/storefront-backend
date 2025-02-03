@@ -44,33 +44,37 @@ export const verifyAuthToken = (
   req: Request,
   res: Response,
   next: NextFunction
-): void => {
+): Response | void => {
   try {
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
-      throw new Error('Authorization header is required');
+      return res.status(401).json({ error: 'Authorization header is required' });
     }
 
     // Extract token from "Bearer <token>"
     const token = authHeader.split(' ')[1];
 
     if (!token) {
-      throw new Error('Token not provided');
+      return res.status(401).json({ error: 'Token not provided' });
     }
 
-    // Verify and decode token
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET as string
-    ) as JWTPayload;
+    try {
+      // Verify and decode token
+      const decoded = jwt.verify(
+        token,
+        process.env.JWT_SECRET as string
+      ) as JWTPayload;
 
-    // Add user info to request object for use in route handlers
-    req.user = decoded.user;
-    next();
+      // Add user info to request object
+      req.user = decoded.user;
+      next();
+    } catch {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
   } catch (error) {
-    res.status(401).json({
-      error: 'Invalid or expired token',
+    return res.status(401).json({
+      error: 'Authentication failed',
       details: error instanceof Error ? error.message : 'Unknown error',
     });
   }
@@ -101,6 +105,7 @@ export const verifyUserAuthorization = (
     });
   }
 };
+
 
 // Password utilities
 export const passwordUtils = {
