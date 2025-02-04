@@ -69,7 +69,8 @@ export const verifyAuthToken = (
       // Add user info to request object
       req.user = decoded.user;
       next();
-    } catch {
+    } catch (jwtError) {
+      console.log(jwtError);
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
   } catch (error) {

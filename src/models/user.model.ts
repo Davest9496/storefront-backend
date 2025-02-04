@@ -236,7 +236,7 @@ export class UserStore {
         if (isValid) {
           // Destructure and omit password_digest from returned user data
           // password_digest is part of the User Interface and cannot be left out
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          // eslint-disable-next-line
           const { password_digest: _, ...userWithoutPassword } = user;
           return userWithoutPassword as User;
         }

@@ -15,7 +15,7 @@ const userController = new UserController();
 // Get all users [token required]
 userRoutes.get('/', verifyAuthToken, userController.index);
 
-// Get specific user [token required]
+// Get specific user - login [token required]
 userRoutes.get('/:id', verifyAuthToken, userController.show);
 
 // Create new user

@@ -2,15 +2,15 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config({
-  files: ['src/**/*.ts'], // Include all TypeScript files
-  ignores: ['dist/**', 'node_modules/**'],
+  files: ['src/**/*.ts', 'tests/**/*.ts'],
+  ignores: ['dist/**/*', 'node_modules/**'],
   languageOptions: {
     globals: {
       ...globals.node,
     },
     parser: tseslint.parser,
     parserOptions: {
-      project: ['./tsconfig.json', './tsconfig.test.json'], // Include both configs
+      project: './tsconfig.json',
     },
   },
   plugins: {
@@ -18,8 +18,15 @@ export default tseslint.config({
   },
   rules: {
     ...tseslint.configs.recommended.rules,
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        ignoreRestSiblings: true,
+      },
+    ],
     '@typescript-eslint/explicit-function-return-type': 'error',
     '@typescript-eslint/no-explicit-any': 'error',
-    '@typescript-eslint/no-unused-vars': 'error',
   },
 });
