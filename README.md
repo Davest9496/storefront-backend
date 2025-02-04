@@ -27,67 +27,36 @@ Before you begin, ensure you have the following installed:
 yarn install
 ```
 
-### Using Bash Script (Recommended for first-time setup)
-```bash
-# Make the setup script executable
-chmod +x setup.sh
-
-# Run the setup script
-./setup.sh
-```
-
-The setup script will:
-1. Create environment files from templates
-2. Install dependencies
-3. Set up databases
-4. Run initial migrations
-
 ## Environment Setup
+1. Create a `.env.test` file for testing:
 
-1. Create a `.env` file in the root directory with the following variables:
-```env
-# Database Configuration
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=storefront_dev
-DB_USER=postgres
-DB_PASSWORD=storefront_dev
+- Database Configuration
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_TEST_DB=storefront_test
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=storefront_test
 
-# Server Configuration
-PORT=3000
-NODE_ENV=development
+- Server Configuration
+PORT=8080
+ENV=test
 
-# JWT Configuration
+
+- JWT Configuration
 JWT_SECRET=very-long-and-secure-secret-key
-PASSWORD_PEPPER=very-long-and-secure-pepper-value
+BCRYPT_PASSWORD=very-long-and-secure-bcrypt-value
 SALT_ROUNDS=10
-```
 
-2. Create a `.env.test` file for testing:
-```env
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=storefront_test
-DB_USER=postgres
-DB_PASSWORD=storefront_test
-JWT_SECRET=JWT_SECRET
-PORT=3001
-```
 
 ## Database Setup
-
 ### Using Docker (Option 1)
 1. Start the PostgreSQL container:
+- This command will create development and test databases
 ```bash
 docker-compose up -d
 ```
 
-2. Create databases:
-```bash
-yarn db:create
-```
-
-3. Run migrations:
+2. Run migrations:
 ```bash
 yarn migrate:up
 yarn migrate:up:test  # For test database
@@ -144,39 +113,7 @@ yarn test:watch
 
 # Run specific test file
 yarn test specs/path/to/file.spec.ts
-```
 
-## Scripts Reference
-
-```bash
-# Development
-yarn dev          # Start development server
-yarn build        # Build the project
-yarn watch        # Watch for changes
-
-# Database
-yarn db:create    # Create databases
-yarn migrate:up   # Run migrations (dev)
-yarn migrate:up:test # Run migrations (test)
-yarn db:populate  # Populate with sample data
-
-# Migrations
-yarn migrate:create   # Create new migration
-yarn migrate:down     # Rollback migration (dev)
-yarn migrate:down:test # Rollback migration (test)
-yarn migrate:reset    # Reset migrations (dev)
-yarn migrate:reset:test # Reset migrations (test)
-
-# Testing
-yarn test         # Run tests
-yarn test:watch   # Run tests in watch mode
-
-# Utility
-yarn lint         # Run ESLint
-yarn format       # Format code with Prettier
-yarn clean        # Clean build
-yarn rebuild      # Clean and rebuild project
-```
 
 ## API Documentation
 
@@ -187,19 +124,16 @@ yarn rebuild      # Clean and rebuild project
 - `GET /api/products/popular` - Get top 5 popular products
 - `GET /api/products/category/:category` - Get products by category
 
-### Users
+### User Authentication
 - `GET /api/users` - Get all users (requires auth token)
-- `GET /api/users/:id` - Get user by ID (requires auth token)
-- `POST /api/users` - Create new user
+- `GET /api/users/:id` - Get user by ID - login (requires auth token)
+- `POST /api/users` - Create new user - signup
 
 ### Orders
 - `GET /api/orders/current/:userId` - Get active order for user (requires auth token)
 - `GET /api/orders/completed/:userId` - Get completed orders for user (requires auth token)
 - `POST /api/orders` - Create new order (requires auth token)
 
-### Authentication
-- `POST /api/auth/login` - Login user
-- `POST /api/auth/signup` - Register new user
 
 ## Technologies Used
 - Node.js & Express.js
@@ -209,47 +143,4 @@ yarn rebuild      # Clean and rebuild project
 - Bcrypt for password hashing
 - Jasmine for testing
 - db-migrate for database migrations
-- Docker & Docker Compose
-
-## Scripts Reference
-
-```bash
-# Development
-yarn dev          # Start development server
-yarn build        # Build the project
-yarn watch        # Watch for changes
-
-# Database
-yarn db:create    # Create databases
-yarn db:migrate   # Run migrations
-yarn db:populate  # Populate with sample data
-
-# Testing
-yarn test         # Run tests
-yarn test:watch   # Run tests in watch mode
-
-# Utility
-yarn lint         # Run ESLint
-yarn format       # Format code with Prettier
-yarn clean        # Clean build artifacts
-yarn rebuild      # Clean and rebuild project
-```
-
-## Project Structure
-```
-├── src/
-│   ├── config/         # Configuration files
-│   ├── controllers/    # Route controllers
-│   ├── middleware/     # Custom middleware
-│   ├── models/         # Database models
-│   ├── routes/         # Route definitions
-│   ├── services/       # Business logic
-│   ├── types/          # TypeScript type definitions
-│   └── utils/          # Utility functions
-├── specs/              # Test files
-├── migrations/         # Database migrations
-└── docker/            # Docker configuration
-```
-
-## License
-This project is licensed under the ISC License.
+- Docker
