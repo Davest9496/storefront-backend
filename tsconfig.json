@@ -34,7 +34,7 @@
       "@scripts/*": ["src/scripts/*"]
     }
   },
-  "include": ["src/**/*", "tests/**/*", "spec/**/*"],
+  "include": ["src/**/*", "src/tests/**/*", "spec/**/*", "src/tests"],
   "exclude": [
     "node_modules",
     "dist",
