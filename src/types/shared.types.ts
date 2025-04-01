@@ -2,7 +2,7 @@ export type OrderStatus = 'active' | 'complete';
 export type ProductCategory = 'headphones' | 'speakers' | 'earphones';
 
 export interface Product {
-  id?: number;
+  id: string; // Changed from number (optional) to string (required)
   product_name: string;
   price: number;
   category: ProductCategory;
@@ -29,13 +29,13 @@ export interface Order {
 export interface OrderProduct {
   id?: number;
   order_id: number;
-  product_id: number;
+  product_id: string; // Changed from number to string
   quantity: number;
 }
 
 // Adding the new interfaces for recent orders feature
 export interface OrderProductDetail {
-  product_id: number;
+  product_id: string; // Changed from number to string
   quantity: number;
 }
 
@@ -56,9 +56,10 @@ export interface UpdatePasswordDTO {
   new_password: string;
 }
 
-
 // DTO interfaces
-export interface CreateProductDTO extends Omit<Product, 'id'> {}
+export interface CreateProductDTO extends Omit<Product, 'id'> {
+  id?: string; // Added back with string type
+}
 
 export interface CreateUserDTO extends Omit<User, 'id' | 'password_digest'> {
   password: string;

@@ -1,6 +1,10 @@
 import { QueryResult } from 'pg';
 import { query } from '../config/database.config';
-import { Product, CreateProductDTO, ProductCategory } from '../types/shared.types';
+import {
+  Product,
+  CreateProductDTO,
+  ProductCategory,
+} from '../types/shared.types';
 import {
   NotFoundError,
   BadRequestError,
@@ -8,11 +12,24 @@ import {
 } from '../utils/error.utils';
 
 export class ProductStore {
+  private mapRowToProduct(row: any): Product {
+    return {
+      id: row.id,
+      product_name: row.product_name,
+      price: row.price,
+      category: row.category,
+      product_desc: row.product_desc,
+      image_name: row.image_name,
+      product_features: row.product_features,
+      product_accessories: row.product_accessories,
+    } as Product;
+  }
+
   async index(): Promise<Product[]> {
     try {
       const sql = 'SELECT * FROM products';
-      const result: QueryResult<Product> = await query(sql);
-      return result.rows;
+      const result: QueryResult = await query(sql);
+      return result.rows.map((row) => this.mapRowToProduct(row));
     } catch (err) {
       throw new DatabaseError(
         `Could not get products: ${err instanceof Error ? err.message : String(err)}`
@@ -20,16 +37,16 @@ export class ProductStore {
     }
   }
 
-  async show(id: number): Promise<Product> {
+  async show(id: string): Promise<Product> {
     try {
       const sql = 'SELECT * FROM products WHERE id = $1';
-      const result: QueryResult<Product> = await query(sql, [id]);
+      const result: QueryResult = await query(sql, [id]);
 
       if (result.rows.length === 0) {
         throw new NotFoundError(`Product with id ${id} not found`);
       }
 
-      return result.rows[0];
+      return this.mapRowToProduct(result.rows[0]);
     } catch (err) {
       if (err instanceof NotFoundError) throw err;
       throw new DatabaseError(
@@ -42,6 +59,7 @@ export class ProductStore {
     try {
       const sql = `
         INSERT INTO products (
+          id,
           product_name, 
           price, 
           category, 
@@ -50,30 +68,27 @@ export class ProductStore {
           product_features, 
           product_accessories
         ) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
         RETURNING *
       `;
 
-      // Convert arrays to PostgreSQL array format
-      const features = product.product_features
-        ? `{${product.product_features.join(',')}}`
-        : null;
-      const accessories = product.product_accessories
-        ? `{${product.product_accessories.join(',')}}`
-        : null;
+      // Helper function to format arrays for PostgreSQL
+      const formatArrayForPg = (arr?: string[]) =>
+        arr ? `{${arr.join(',')}}` : null;
 
       const values = [
+        product.id,
         product.product_name,
         product.price,
         product.category,
         product.product_desc || null,
         product.image_name,
-        features,
-        accessories,
+        formatArrayForPg(product.product_features),
+        formatArrayForPg(product.product_accessories),
       ];
 
-      const result: QueryResult<Product> = await query(sql, values);
-      return result.rows[0];
+      const result: QueryResult = await query(sql, values);
+      return this.mapRowToProduct(result.rows[0]);
     } catch (err) {
       throw new DatabaseError(
         `Could not add product: ${err instanceof Error ? err.message : String(err)}`
@@ -82,7 +97,7 @@ export class ProductStore {
   }
 
   async update(
-    id: number,
+    id: string,
     updates: Partial<CreateProductDTO>
   ): Promise<Product> {
     try {
@@ -114,7 +129,7 @@ export class ProductStore {
       const setClauses = updateEntries.map(
         ([key], index) => `${key} = $${index + 1}`
       );
-      const values = updateEntries.map(([, value]) => {
+      const values = updateEntries.map(([_key, value]) => {
         if (Array.isArray(value)) {
           return `{${value.join(',')}}`;
         }
@@ -128,8 +143,8 @@ export class ProductStore {
         RETURNING *
       `;
 
-      const result: QueryResult<Product> = await query(sql, [...values, id]);
-      return result.rows[0];
+      const result: QueryResult = await query(sql, [...values, id]);
+      return this.mapRowToProduct(result.rows[0]);
     } catch (err) {
       if (err instanceof NotFoundError || err instanceof BadRequestError)
         throw err;
@@ -139,7 +154,7 @@ export class ProductStore {
     }
   }
 
-  async delete(id: number): Promise<void> {
+  async delete(id: string): Promise<void> {
     try {
       const sql = 'DELETE FROM products WHERE id = $1 RETURNING id';
       const result = await query(sql, [id]);
@@ -167,8 +182,8 @@ export class ProductStore {
       }
 
       const sql = 'SELECT * FROM products WHERE category = $1';
-      const result: QueryResult<Product> = await query(sql, [category]);
-      return result.rows;
+      const result: QueryResult = await query(sql, [category]);
+      return result.rows.map((row) => this.mapRowToProduct(row));
     } catch (err) {
       // If it's a database enum error, return empty array
       if (
@@ -197,14 +212,13 @@ export class ProductStore {
         LIMIT 5
       `;
 
-      interface ProductWithSales extends Product {
-        total_sold: number;
-      }
+      const result: QueryResult = await query(sql);
 
-      const result: QueryResult<ProductWithSales> = await query(sql);
-
-      // Explicitly removing total_sold from the returned products
-      return result.rows.map(({ ...product }) => product);
+      // Map results, omitting the total_sold field
+      return result.rows.map((row) => {
+        const { total_sold, ...productData } = row;
+        return this.mapRowToProduct(productData);
+      });
     } catch (err) {
       throw new DatabaseError(
         `Could not get top products: ${err instanceof Error ? err.message : String(err)}`
@@ -222,8 +236,8 @@ export class ProductStore {
           category::text ILIKE $1
       `;
       const searchPattern = `%${searchTerm}%`;
-      const result: QueryResult<Product> = await query(sql, [searchPattern]);
-      return result.rows;
+      const result: QueryResult = await query(sql, [searchPattern]);
+      return result.rows.map((row) => this.mapRowToProduct(row));
     } catch (err) {
       throw new DatabaseError(
         `Could not search products: ${err instanceof Error ? err.message : String(err)}`

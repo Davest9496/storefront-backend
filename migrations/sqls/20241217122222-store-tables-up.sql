@@ -19,9 +19,9 @@ CREATE TABLE users (
     password_digest VARCHAR(250) NOT NULL
 );
 
--- Create products table
+-- Create products table with string ID
 CREATE TABLE products (
-    id SERIAL PRIMARY KEY,
+    id VARCHAR(50) PRIMARY KEY,  -- Changed from SERIAL to VARCHAR
     product_name VARCHAR(100) NOT NULL,
     price DECIMAL(10,2) NOT NULL CHECK (price > 0),
     category product_category NOT NULL,
@@ -42,11 +42,11 @@ CREATE TABLE orders (
         ON DELETE CASCADE
 );
 
--- Create order_products join table
+-- Create order_products join table with VARCHAR product_id
 CREATE TABLE order_products (
     id SERIAL PRIMARY KEY,
     order_id INTEGER NOT NULL,
-    product_id INTEGER NOT NULL,
+    product_id VARCHAR(50) NOT NULL,  -- Changed from INTEGER to VARCHAR
     quantity INTEGER NOT NULL CHECK (quantity > 0),
     CONSTRAINT fk_order 
         FOREIGN KEY (order_id) 

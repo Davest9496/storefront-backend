@@ -6,6 +6,7 @@ import {
   BadRequestError,
   DatabaseError,
 } from '../utils/error.utils';
+import { generateProductId } from '../utils/product.utils';
 
 export class ProductController {
   private store: ProductStore;
@@ -30,8 +31,10 @@ export class ProductController {
   // GET /products/:id
   show = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
+      const id = req.params.id;
+
+      // Basic validation for ID format
+      if (!id || id.trim() === '') {
         return res.status(400).json({ error: 'Invalid product ID' });
       }
 
@@ -70,6 +73,11 @@ export class ProductController {
         return res.status(400).json({ error: 'Price must be greater than 0' });
       }
 
+      // Generate ID if not provided
+      if (!productData.id) {
+        productData.id = generateProductId(productData.product_name);
+      }
+
       const newProduct = await this.store.create(productData);
       return res.status(201).json(newProduct);
     } catch (err) {
@@ -83,8 +91,10 @@ export class ProductController {
   // PUT /products/:id
   update = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
+      const id = req.params.id;
+
+      // Basic validation for ID format
+      if (!id || id.trim() === '') {
         return res.status(400).json({ error: 'Invalid product ID' });
       }
 
@@ -114,8 +124,10 @@ export class ProductController {
   // DELETE /products/:id
   delete = async (req: Request, res: Response): Promise<Response> => {
     try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
+      const id = req.params.id;
+
+      // Basic validation for ID format
+      if (!id || id.trim() === '') {
         return res.status(400).json({ error: 'Invalid product ID' });
       }
 
@@ -147,10 +159,7 @@ export class ProductController {
   };
 
   // GET /products/popular
-  getPopular = async (
-    _req: Request,
-    res: Response
-  ): Promise<Response> => {
+  getPopular = async (_req: Request, res: Response): Promise<Response> => {
     try {
       const products = await this.store.getPopular();
       return res.json(products);
