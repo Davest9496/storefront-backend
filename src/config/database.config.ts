@@ -2,19 +2,44 @@ import { Pool, PoolConfig, QueryResult, QueryResultRow } from 'pg';
 import dotenv from 'dotenv';
 import path from 'path';
 
-const envFile = process.env.NODE_ENV === 'test' ? '.env.test' : '.env';
-const envPath = path.resolve(process.cwd(), envFile);
+// Determine which environment file to use based on NODE_ENV
+let envFile = '.env';
+if (process.env.NODE_ENV === 'test') {
+  envFile = '.env.test';
+} else if (process.env.NODE_ENV === 'production') {
+  envFile = '.env.production';
+}
 
+const envPath = path.resolve(process.cwd(), envFile);
 dotenv.config({ path: envPath });
 
 interface DatabaseRow extends QueryResultRow {
-  id?: number;
+  id?: number | string;
 }
 
-type QueryParams = string | number | boolean | null | undefined | Buffer | Date;
+// Expand QueryParams to include arrays for PostgreSQL compatibility
+type QueryParams =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | Buffer
+  | Date
+  | string[]
+  | any[];
 
 const getDbConfig = (): PoolConfig => {
   const isTest = process.env.NODE_ENV === 'test';
+  const isProd = process.env.NODE_ENV === 'production';
+
+  // Production environment might use connection string instead of individual params
+  if (isProd && process.env.DATABASE_URL) {
+    return {
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false }, // Required for some cloud providers
+    };
+  }
 
   return {
     host: process.env.POSTGRES_HOST || 'localhost',

@@ -18,7 +18,6 @@
     "clean:dist": "rm -rf dist",
     "clean:cache": "rm -rf node_modules/.cache",
     "rebuild": "yarn run clean && yarn install && yarn run build",
-    "check:env": "ts-node -e \"import { verifySecurityConfig } from './src/config/security.config'; console.log('Security config status:', verifySecurityConfig());\"",
     "migrate:create": "db-migrate create",
     "migrate:up": "db-migrate up",
     "migrate:down": "db-migrate down",

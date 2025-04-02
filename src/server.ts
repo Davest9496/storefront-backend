@@ -1,8 +1,10 @@
-import express, { Application, Request, Response } from 'express';
+import express, { Application, Request, Response, NextFunction } from 'express';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
 import router from './routes/router';
 import { dbPool } from './config/database.config';
+import { faviconHandler } from './middleware/favicon.middleware';
+import { AppError } from './utils/error.utils';
 
 dotenv.config();
 
@@ -10,6 +12,8 @@ const app: Application = express();
 const port: number = parseInt(process.env.PORT || '3000', 10);
 
 // Middleware
+// Add favicon handler first to intercept favicon requests
+app.use(faviconHandler);
 app.use(bodyParser.json());
 
 // Health check endpoint
@@ -31,13 +35,43 @@ app.get('/health', async (_req: Request, res: Response): Promise<void> => {
 // API routes
 app.use('/api', router);
 
+// 404 handler for undefined routes
+app.use((_req: Request, res: Response): void => {
+  res.status(404).json({
+    status: 'not_found',
+    message: 'Route not found',
+  });
+});
+
 // Error handling middleware
 app.use(
-  (err: Error, _req: Request, res: Response): void => {
+  (
+    err: Error | AppError,
+    _req: Request,
+    res: Response,
+    _next: NextFunction
+  ): void => {
     console.error('Error:', err);
-    res.status(500).json({
-      error: 'Internal Server Error',
-      message: process.env.NODE_ENV === 'development' ? err.message : undefined,
+
+    // Default error values
+    let statusCode = 500;
+    let status = 'error';
+    let message = 'Internal Server Error';
+
+    // If it's our AppError type, use its values
+    if (err instanceof AppError) {
+      statusCode = err.statusCode;
+      status = err.status;
+      message = err.message;
+    } else if (err instanceof Error) {
+      // For standard JavaScript errors, use the message
+      message = err.message;
+    }
+
+    res.status(statusCode).json({
+      status: status,
+      message: message,
+      ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
     });
   }
 );
