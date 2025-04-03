@@ -5,6 +5,7 @@ import router from './routes/router';
 import { dbPool } from './config/database.config';
 import { faviconHandler } from './middleware/favicon.middleware';
 import { AppError } from './utils/error.utils';
+import cors from 'cors';
 
 dotenv.config();
 
@@ -12,6 +13,14 @@ const app: Application = express();
 const port: number = parseInt(process.env.PORT || '3000', 10);
 
 // Middleware
+// Enable CORS
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:4200',
+    credentials: true, // Include credentials if needed
+  })
+);
+
 // Add favicon handler first to intercept favicon requests
 app.use(faviconHandler);
 app.use(bodyParser.json());
