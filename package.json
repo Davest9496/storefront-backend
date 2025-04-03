@@ -25,9 +25,16 @@
     "migrate:up:test": "NODE_ENV=test db-migrate up --config database.json -e test",
     "migrate:down:test": "NODE_ENV=test db-migrate down --config database.json -e test",
     "migrate:reset:test": "NODE_ENV=test db-migrate reset --config database.json -e test",
+    "migrate:prod": "node scripts/migrate-prod-db.js",
     "db:populate": "psql -d storefront_dev -f migrations/sqls/populate_db.sql",
     "verify:db": "ts-node src/scripts/verify-db-setup.ts",
-    "test:db": "NODE_ENV=test ts-node src/tests/scripts/run-db-test.ts"
+    "test:db": "NODE_ENV=test ts-node src/tests/scripts/run-db-test.ts",
+    "postinstall": "npm run build",
+    "deploy": "npm run build && npm run migrate:prod",
+    "eb:init": "eb init",
+    "eb:create": "eb create",
+    "eb:deploy": "eb deploy",
+    "eb:setenv": "bash scripts/deploy-env.sh"
   },
   "dependencies": {
     "@types/bcrypt": "^5.0.2",
@@ -64,6 +71,9 @@
     "ts-node-dev": "^2.0.0",
     "tsc-watch": "^6.0.4",
     "typescript-eslint": "^8.22.0"
+  },
+  "engines": {
+    "node": "18.x"
   },
   "license": "ISC"
 }
