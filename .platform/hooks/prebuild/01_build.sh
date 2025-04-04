@@ -8,7 +8,7 @@ echo "Building TypeScript application on server..."
 # Install needed type definitions
 npm install --save-dev @types/express @types/pg @types/jsonwebtoken @types/body-parser @types/cors
 
-# Install build dependencies
+# Install all dependencies
 npm install
 
 # Create dist directory with proper permissions
