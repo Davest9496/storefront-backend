@@ -15,32 +15,18 @@ ensure_eb_config() {
     echo "Created .ebextensions directory"
   fi
   
-  # Create Node.js configuration file
-  if [ ! -f ".ebextensions/nodecommand.config" ]; then
-    cat > .ebextensions/nodecommand.config << EOL
+# Create Node.js configuration file
+if [ ! -f ".ebextensions/nodecommand.config" ]; then
+  cat > .ebextensions/nodecommand.config << EOL
 option_settings:
-  aws:elasticbeanstalk:container:nodejs:
-    NodeCommand: "node -r tsconfig-paths/register dist/server.js"
-    NodeVersion: 20.x
+  aws:elasticbeanstalk:environment:proxy:
+    ProxyServer: nginx
   aws:elasticbeanstalk:application:environment:
     NODE_ENV: production
     PORT: 8000
 EOL
-    echo "Created .ebextensions/nodecommand.config"
-  fi
-  
-  # Add permissions configuration
-  if [ ! -f ".ebextensions/01_permissions.config" ]; then
-    cat > .ebextensions/01_permissions.config << EOL
-commands:
-  01_set_permissions:
-    command: |
-      mkdir -p /var/app/staging/dist
-      chown -R webapp:webapp /var/app/staging
-      chmod -R 755 /var/app/staging
-EOL
-    echo "Created .ebextensions/01_permissions.config"
-  fi
+  echo "Created .ebextensions/nodecommand.config"
+fi
 
   # Create platform hooks directory if it doesn't exist
   if [ ! -d ".platform/hooks/prebuild" ]; then
@@ -88,7 +74,7 @@ EOL
     echo "web: node -r tsconfig-paths/register dist/server.js" > Procfile
     echo "Created Procfile"
   fi
-}
+} # <-- This closing brace was missing
 
 # Build the TypeScript application
 build_application() {
