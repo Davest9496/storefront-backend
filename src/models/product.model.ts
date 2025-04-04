@@ -12,7 +12,16 @@ import {
 } from '../utils/error.utils';
 
 export class ProductStore {
-  private mapRowToProduct(row: any): Product {
+  private mapRowToProduct(row: {
+    id: string;
+    product_name: string;
+    price: number;
+    category: string;
+    product_desc: string | null;
+    image_name: string;
+    product_features: string[] | null;
+    product_accessories: string[] | null;
+  }): Product {
     return {
       id: row.id,
       product_name: row.product_name,
@@ -73,7 +82,7 @@ export class ProductStore {
       `;
 
       // Helper function to format arrays for PostgreSQL
-      const formatArrayForPg = (arr?: string[]) =>
+      const formatArrayForPg = (arr?: string[]): string | null =>
         arr ? `{${arr.join(',')}}` : null;
 
       const values = [

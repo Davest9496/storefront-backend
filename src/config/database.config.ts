@@ -27,8 +27,7 @@ type QueryParams =
   | Buffer
   | Date
   | string[]
-  | any[];
-
+  | unknown[];
 const getDbConfig = (): PoolConfig => {
   const isTest = process.env.NODE_ENV === 'test';
   const isProd = process.env.NODE_ENV === 'production';

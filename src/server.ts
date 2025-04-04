@@ -10,7 +10,7 @@ import cors from 'cors';
 dotenv.config();
 
 const app: Application = express();
-const port: number = parseInt(process.env.PORT || '3000', 10);
+const port: number = parseInt(process.env.PORT || '8000', 10);
 
 // Middleware
 // Enable CORS

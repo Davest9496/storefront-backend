@@ -8,6 +8,12 @@ import {
   UpdateUserDTO,
   UpdatePasswordDTO
 } from '../types/shared.types';
+
+// Define the UserPasswordRow type
+type UserPasswordRow = {
+  password_digest: string;
+};
+
 import { passwordUtils } from '../middleware/auth.middleware';
 
 export class UserStore {
@@ -137,7 +143,7 @@ export class UserStore {
     try {
       // Get user with password hash
       const sql = 'SELECT password_digest FROM users WHERE id = $1';
-      const result = await query<Pick<User, 'password_digest'>>(sql, [id]);
+      const result = await query<UserPasswordRow>(sql, [id]);
 
       if (!result.rows.length) {
         throw new Error('User not found');

@@ -1,0 +1,6 @@
+{
+    "aws:elasticbeanstalk:container:nodejs": {
+        "NodeVersion": "20.x",
+        "ProxyServer": "nginx"
+    }
+}

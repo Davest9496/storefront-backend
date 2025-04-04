@@ -1,1 +1,1 @@
-web: npm start
+web: node -r tsconfig-paths/register dist/server.js

@@ -1,20 +1,16 @@
-
 import { Request, Response, NextFunction } from 'express';
-import {
-  AppError,
-  NotFoundError,
-  isAppError,
-} from '../utils/error.utils';
+import { AppError, NotFoundError, isAppError } from '../utils/error.utils';
 
 // Handle 404 errors for routes that don't exist
 export const notFoundHandler = (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
+): void => {
+  // Explicitly specify the return type as void
   // Special handling for favicon.ico requests
   if (req.originalUrl.includes('favicon.ico')) {
-    return res.status(204).end(); // No content - browser will cache this response
+     res.status(204).end(); // No content - browser will cache this response
   }
 
   next(new NotFoundError(`Route ${req.method} ${req.originalUrl} not found`));
@@ -27,7 +23,8 @@ export const errorHandler = (
   _req: Request,
   res: Response,
   _next: NextFunction
-) => {
+): Response => {
+  // Explicitly specify the return type as Response
   console.error('Error:', err);
 
   // Default error response

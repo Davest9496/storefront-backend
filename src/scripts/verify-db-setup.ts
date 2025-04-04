@@ -41,17 +41,18 @@ class DatabaseVerifier {
   ): Promise<Set<string>> {
     // Query to check existing databases using parameterized query for safety
     const dbCheckQuery = `
-      SELECT datname 
-      FROM pg_database 
-      WHERE datname = ANY($1)
-    `;
+    SELECT datname 
+    FROM pg_database 
+    WHERE datname = ANY($1)
+  `;
 
     const dbCheckResult = await client.query<DatabaseCheckResult>(
       dbCheckQuery,
       [this.requiredDatabases]
     );
 
-    const existingDatabases = new Set(
+    // Explicitly type the Set as Set<string>
+    const existingDatabases = new Set<string>(
       dbCheckResult.rows.map((row) => row.datname)
     );
 

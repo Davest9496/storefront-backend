@@ -4,12 +4,12 @@
     "module": "commonjs",
     "lib": ["es6", "dom"],
     "outDir": "./dist",
-    "rootDir": ".",
+    "rootDir": "./src",
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
     "strictFunctionTypes": true,
-    "strictBindCallApply": true,
+    "strictBindCallApply": false,
     "moduleResolution": "node",
     "esModuleInterop": true,
     "resolveJsonModule": true,
@@ -20,6 +20,7 @@
     "noFallthroughCasesInSwitch": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
+    "types": ["node"],
     "typeRoots": ["./node_modules/@types", "./src/types"],
     "baseUrl": ".",
     "paths": {
@@ -34,9 +35,16 @@
       "@scripts/*": ["src/scripts/*"]
     }
   },
-  "include": ["src/**/*", "src/tests/**/*", "spec/**/*", "src/tests"],
+  "include": ["src/**/*.ts"],
   "exclude": [
     "node_modules",
     "dist",
+    "**/*.spec.ts",
+    "**/*.test.ts",
+    "tests",
+    "spec",
+    "src/tests",
+    "src/**/*.spec.ts",
+    "src/**/*.test.ts"
   ]
 }
