@@ -20,17 +20,72 @@ ensure_eb_config() {
     cat > .ebextensions/nodecommand.config << EOL
 option_settings:
   aws:elasticbeanstalk:container:nodejs:
-    NodeCommand: "npm start"
+    NodeCommand: "node -r tsconfig-paths/register dist/server.js"
     NodeVersion: 20.x
   aws:elasticbeanstalk:application:environment:
     NODE_ENV: production
+    PORT: 8000
 EOL
     echo "Created .ebextensions/nodecommand.config"
   fi
   
+  # Add permissions configuration
+  if [ ! -f ".ebextensions/01_permissions.config" ]; then
+    cat > .ebextensions/01_permissions.config << EOL
+commands:
+  01_set_permissions:
+    command: |
+      mkdir -p /var/app/staging/dist
+      chown -R webapp:webapp /var/app/staging
+      chmod -R 755 /var/app/staging
+EOL
+    echo "Created .ebextensions/01_permissions.config"
+  fi
+
+  # Create platform hooks directory if it doesn't exist
+  if [ ! -d ".platform/hooks/prebuild" ]; then
+    mkdir -p .platform/hooks/prebuild
+    echo "Created .platform/hooks/prebuild directory"
+  fi
+
+  # Create prebuild script
+  cat > .platform/hooks/prebuild/01_build.sh << EOL
+#!/bin/bash
+set -e  # Exit on any error
+
+cd /var/app/staging
+
+echo "Building TypeScript application on server..."
+
+# Install needed type definitions
+npm install --save-dev @types/express @types/pg @types/jsonwebtoken @types/body-parser @types/cors
+
+# Install all dependencies
+npm install
+
+# Create dist directory with proper permissions
+mkdir -p dist
+chmod 755 dist
+
+# Run the build
+npm run build
+
+# Verify build output exists
+if [ -f "dist/server.js" ]; then
+  echo "Build successful! dist/server.js exists."
+else
+  echo "Build failed! dist/server.js not found."
+  exit 1
+fi
+EOL
+
+  # Make the prebuild script executable
+  chmod +x .platform/hooks/prebuild/01_build.sh
+  echo "Created and made executable .platform/hooks/prebuild/01_build.sh"
+  
   # Create Procfile if it doesn't exist
   if [ ! -f "Procfile" ]; then
-    echo "web: npm start" > Procfile
+    echo "web: node -r tsconfig-paths/register dist/server.js" > Procfile
     echo "Created Procfile"
   fi
 }
